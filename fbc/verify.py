@@ -1,0 +1,29 @@
+"""Second, independent pass: grounded fact-check of every answer (spec §5)."""
+import json
+from pathlib import Path
+
+from .gemini import generate_json
+from .models import Question
+
+PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "verify.md").read_text()
+CHUNK = 10
+
+
+def verify_questions(qs: list[Question], gen=generate_json) -> list[Question]:
+    for i in range(0, len(qs), CHUNK):
+        chunk = qs[i:i + CHUNK]
+        items = "\n".join(json.dumps({"id": q.id, "question": q.question, "options": q.options,
+                                      "stated_answer": q.answer, "fun_fact": q.fun_fact}, ensure_ascii=False)
+                          for q in chunk)
+        verdicts = {v.get("id"): v for v in gen(PROMPT.format(items=items), {}, grounded=True) or []}
+        for q in chunk:
+            v = verdicts.get(q.id)
+            if v and v.get("correct") and v.get("source_url"):
+                q.verified, q.source_url = True, v["source_url"]
+            else:
+                q.verified = False
+                note = (v or {}).get("note") or "no verdict or no source"
+                q.flags.append(f"⚠️ unverified: {note}")
+                if v and v.get("source_url"):
+                    q.source_url = v["source_url"]
+    return qs

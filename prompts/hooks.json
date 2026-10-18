@@ -1,0 +1,22 @@
+[
+  {"id": "h01", "text": "Only 3% of adults get all three right!", "formats": ["three_q"]},
+  {"id": "h02", "text": "Your kid probably knows this. Do you?", "formats": ["three_q", "parents_vs_kids", "true_false"]},
+  {"id": "h03", "text": "Three questions. No cheating. Go!", "formats": ["three_q"]},
+  {"id": "h04", "text": "Most parents miss the last one!", "formats": ["three_q", "true_false"]},
+  {"id": "h05", "text": "Can you beat your kids at this?", "formats": ["three_q", "parents_vs_kids"]},
+  {"id": "h06", "text": "Bet you can't get a perfect score.", "formats": ["three_q", "true_false"]},
+  {"id": "h07", "text": "What are you looking at? Guess before it zooms out!", "formats": ["zoom_reveal"]},
+  {"id": "h08", "text": "Name it before the zoom ends!", "formats": ["zoom_reveal"]},
+  {"id": "h09", "text": "This is closer than you think. Guess!", "formats": ["zoom_reveal"]},
+  {"id": "h10", "text": "Only 1% solve this riddle!", "formats": ["riddle"]},
+  {"id": "h11", "text": "Kids solve this faster than adults.", "formats": ["riddle"]},
+  {"id": "h12", "text": "Five seconds. One riddle. Can you?", "formats": ["riddle"]},
+  {"id": "h13", "text": "Parents versus kids. Who wins at your house?", "formats": ["parents_vs_kids"]},
+  {"id": "h14", "text": "One for the grown-ups, one for the kids!", "formats": ["parents_vs_kids"]},
+  {"id": "h15", "text": "True or false? Answer fast!", "formats": ["true_false"]},
+  {"id": "h16", "text": "Five facts. Which ones are fake?", "formats": ["true_false"]},
+  {"id": "h17", "text": "Would you rather? Vote in the comments!", "formats": ["would_you_rather"]},
+  {"id": "h18", "text": "Your family won't agree on this one.", "formats": ["would_you_rather"]},
+  {"id": "h19", "text": "Pick one. You can't have both!", "formats": ["would_you_rather"]},
+  {"id": "h20", "text": "This one starts a family argument.", "formats": ["would_you_rather", "parents_vs_kids"]}
+]

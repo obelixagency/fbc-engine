@@ -161,6 +161,26 @@ def _titles(item_id: str, titles, idx, problems):
             problems.append(f'{item_id}: title "{t}" is {len(t)} chars (max {LIMITS["title_chars"]})')
 
 
+def short_problems(s: dict) -> list[str]:
+    """Problems for a single short candidate (used to drop bad candidates during generation)."""
+    problems: list[str] = []
+    sid, fmt = s.get("id", "?"), s.get("format")
+    if fmt not in FORMATS:
+        return [f"{sid}: unknown format {fmt!r}"]
+    qs = [_question(x, KIND[fmt], problems) for x in s.get("questions", [])]
+    if len(qs) != FORMATS[fmt]:
+        problems.append(f"{sid}: {fmt} needs {FORMATS[fmt]} questions (has {len(qs)})")
+    _titles(sid, s.get("titles"), s.get("chosen_title_index", 0), problems)
+    _copy_checks(sid, [s.get("hook", ""), s.get("description", ""), s.get("first_comment", ""), *s.get("titles", [])], problems)
+    return problems
+
+
+def question_problems(d: dict, kind: str = "mcq") -> list[str]:
+    problems: list[str] = []
+    _question(d, kind, problems)
+    return problems
+
+
 def parse_batch(raw: str) -> Batch:
     try:
         d = json.loads(raw)
