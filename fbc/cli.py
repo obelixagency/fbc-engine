@@ -360,7 +360,7 @@ def auth_youtube() -> None:
 # ---------------------------------------------------------------- main
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fbc")
-    ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube"])
+    ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check"])
     ap.add_argument("--week")
     ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
     ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
@@ -370,6 +370,9 @@ def main(argv=None) -> int:
     if a.command == "auth-youtube":
         auth_youtube()
         return 0
+    if a.command == "check":
+        from .check import run_checks
+        return 1 if run_checks() else 0
     now = datetime.now(timezone.utc)
     repo = ContentRepo(Path(a.content), CONTENT_REPO)
     media = Path(a.media) if Path(a.media).exists() else None
