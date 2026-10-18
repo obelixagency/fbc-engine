@@ -5,3 +5,4 @@ out/
 work/
 .pytest_cache/
 node_modules/
+*.egg-info/
