@@ -23,7 +23,7 @@ N_SHORTS = 14
 EXTRA = 0.2
 
 Q_SCHEMA = {"type": "object", "properties": {
-    "category": {"type": "string"}, "difficulty": {"type": "string"}, "question": {"type": "string"},
+    "category": {"type": "string"}, "difficulty": {"type": "string", "enum": ["easy", "medium", "hard"]}, "question": {"type": "string"},
     "options": {"type": "array", "items": {"type": "string"}}, "answer_index": {"type": "integer"},
     "answer": {"type": "string"}, "fun_fact": {"type": "string"}, "source_url": {"type": "string"},
     "visual_query": {"type": "string"}},
@@ -38,6 +38,12 @@ LONG_SCHEMA = {"type": "object", "properties": {
     "bonus": {"type": "array", "items": Q_SCHEMA}, "titles": {"type": "array", "items": {"type": "string"}},
     "description": {"type": "string"}, "first_comment": {"type": "string"}},
     "required": ["rounds", "bonus", "titles", "description", "first_comment"]}
+
+
+def _norm(qd: dict) -> dict:
+    """Small, safe clean-ups of model output before validation (e.g. " Easy " -> "easy")."""
+    d = qd.get("difficulty")
+    return dict(qd, difficulty=d.strip().lower()) if isinstance(d, str) else dict(qd)
 
 
 def _wk(week: str) -> str:
@@ -75,7 +81,7 @@ def _shorts(formats, weights, used, rng, gen, today, seen) -> list[dict]:
         cand = dict(cand)
         hook = _pick_hook(fmt, weights, rng)
         cand.update(id="", hook=hook["text"], hook_id=hook["id"], chosen_title_index=0)
-        cand["questions"] = [dict(qd, source_url=qd.get("source_url", ""), verified=False, flags=[])
+        cand["questions"] = [dict(_norm(qd), source_url=qd.get("source_url", ""), verified=False, flags=[])
                              for qd in cand.get("questions", [])]
         kept.append(cand)
     return kept
@@ -116,7 +122,7 @@ def _long(week, episode, used, gen, today, seen) -> dict:
             (raw.get("rounds", [])[r_i - 1] if len(raw.get("rounds", [])) >= r_i else {"questions": []})
         qs, rejects = [], []
         for qd in src.get("questions", []):
-            qd = dict(qd, id=f"{lid}_r{r_i}_{len(qs)}", source_url=qd.get("source_url", ""), verified=False, flags=[])
+            qd = dict(_norm(qd), id=f"{lid}_r{r_i}_{len(qs)}", source_url=qd.get("source_url", ""), verified=False, flags=[])
             problems = question_problems(qd)
             if problems:
                 rejects.extend(problems)
@@ -131,7 +137,7 @@ def _long(week, episode, used, gen, today, seen) -> dict:
         rounds.append({"name": name, "questions": qs})
     bonus = None
     for qd in raw.get("bonus", []):
-        qd = dict(qd, id=f"{lid}_bonus", source_url=qd.get("source_url", ""), verified=False, flags=[])
+        qd = dict(_norm(qd), id=f"{lid}_bonus", source_url=qd.get("source_url", ""), verified=False, flags=[])
         if not question_problems(qd) and _fresh(qd, used, seen, today):
             bonus = qd
             break

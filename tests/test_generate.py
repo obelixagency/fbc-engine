@@ -122,3 +122,22 @@ def test_too_few_survivors_error_lists_rejection_reasons():
         build(gen)
     text = "\n".join(e.value.problems)
     assert "only 0 of 14" in text and "words (max" in text
+
+
+def test_difficulty_is_normalized_before_validation():
+    good, _ = fake_gen_factory()
+
+    def gen(prompt, schema, grounded=False, **kw):
+        out = good(prompt, schema, grounded)
+        if "Family Quiz Night" in prompt:
+            for r in out["rounds"]:
+                for qq in r["questions"]:
+                    qq["difficulty"] = " Easy "
+            out["bonus"][0]["difficulty"] = "HARD"
+        return out
+    b = build(gen)
+    assert all(qq.difficulty == "easy" for r in b.long.rounds for qq in r["questions"])
+
+
+def test_schema_constrains_difficulty():
+    assert generate.Q_SCHEMA["properties"]["difficulty"]["enum"] == ["easy", "medium", "hard"]

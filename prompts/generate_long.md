@@ -5,7 +5,7 @@ Hard rules (same as the Shorts):
 - No brands, celebrities, movies, TV, games, cartoon characters, religion, politics, violence or scary topics.
 - True, well-established, checkable facts.
 - question <= 12 words; exactly 3 options of <= 3 words each; one correct; fun_fact <= 15 words.
-- Mix difficulty inside each round: 2 easy, 2 medium, 2 hard.
+- difficulty is exactly "easy", "medium" or "hard" (lowercase). Mix it inside each round: 2 easy, 2 medium, 2 hard.
 - visual_query: 2-4 words for a stock video search of the subject (no children as main subject).
 
 Rounds (names fixed): {rounds}
