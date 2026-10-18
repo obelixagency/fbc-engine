@@ -10,3 +10,6 @@ dev = ["pytest>=8"]
 [tool.pytest.ini_options]
 markers = ["slow: renders real video (needs node + chromium + ffmpeg)"]
 addopts = "-m 'not slow'"
+
+[tool.setuptools.packages.find]
+include = ["fbc*"]
