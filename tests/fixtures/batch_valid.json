@@ -1,0 +1,1348 @@
+{
+  "week": "2026-W44",
+  "shorts": [
+    {
+      "id": "s_2026w44_00",
+      "format": "three_q",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_00_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_00_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_00_2",
+          "category": "animals",
+          "difficulty": "hard",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_01",
+      "format": "zoom_reveal",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_01_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_02",
+      "format": "riddle",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_02_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "What has keys but cannot open a single lock?",
+          "options": [],
+          "answer_index": -1,
+          "answer": "A piano",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_03",
+      "format": "parents_vs_kids",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_03_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_03_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_04",
+      "format": "true_false",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_04_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_04_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_04_2",
+          "category": "animals",
+          "difficulty": "hard",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_04_3",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_04_4",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_05",
+      "format": "would_you_rather",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_05_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Would you rather...",
+          "options": [
+            "Fly like a bird",
+            "Breathe underwater"
+          ],
+          "answer_index": -1,
+          "answer": "",
+          "fun_fact": "",
+          "source_url": "",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_06",
+      "format": "three_q",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_06_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_06_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_06_2",
+          "category": "animals",
+          "difficulty": "hard",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_07",
+      "format": "zoom_reveal",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_07_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_08",
+      "format": "riddle",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_08_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "What has keys but cannot open a single lock?",
+          "options": [],
+          "answer_index": -1,
+          "answer": "A piano",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_09",
+      "format": "parents_vs_kids",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_09_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_09_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_10",
+      "format": "true_false",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_10_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_10_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_10_2",
+          "category": "animals",
+          "difficulty": "hard",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_10_3",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_10_4",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Octopuses have three hearts.",
+          "options": [
+            "True",
+            "False"
+          ],
+          "answer_index": 0,
+          "answer": "True",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_11",
+      "format": "would_you_rather",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_11_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Would you rather...",
+          "options": [
+            "Fly like a bird",
+            "Breathe underwater"
+          ],
+          "answer_index": -1,
+          "answer": "",
+          "fun_fact": "",
+          "source_url": "",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_12",
+      "format": "three_q",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_12_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_12_1",
+          "category": "animals",
+          "difficulty": "medium",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        },
+        {
+          "id": "q_2026w44_12_2",
+          "category": "animals",
+          "difficulty": "hard",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    },
+    {
+      "id": "s_2026w44_13",
+      "format": "zoom_reveal",
+      "hook": "Only 3% of adults get all three right!",
+      "questions": [
+        {
+          "id": "q_2026w44_13_0",
+          "category": "animals",
+          "difficulty": "easy",
+          "question": "Which animal can sleep standing up?",
+          "options": [
+            "Penguin",
+            "Horse",
+            "Rabbit"
+          ],
+          "answer_index": 1,
+          "answer": "Horse",
+          "fun_fact": "Horses lock their legs so they can doze without falling.",
+          "source_url": "https://example.org/horse",
+          "visual_query": "horse sleeping field",
+          "verified": true,
+          "flags": []
+        }
+      ],
+      "titles": [
+        "Only 3% of Parents Get All 3 Right",
+        "Your Kid Knows This. Do You?",
+        "Family Brain Clash Challenge"
+      ],
+      "chosen_title_index": 0,
+      "description": "Can you beat your kids? Comment your score!",
+      "first_comment": "Drop your score below 👇 How many did you get?",
+      "hook_id": "h01"
+    }
+  ],
+  "long": {
+    "id": "l_2026w44",
+    "episode": 1,
+    "rounds": [
+      {
+        "name": "Animals",
+        "questions": [
+          {
+            "id": "l_2026w44_r1_0",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r1_1",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r1_2",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r1_3",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r1_4",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r1_5",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          }
+        ]
+      },
+      {
+        "name": "Geography",
+        "questions": [
+          {
+            "id": "l_2026w44_r2_0",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r2_1",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r2_2",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r2_3",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r2_4",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r2_5",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          }
+        ]
+      },
+      {
+        "name": "Science",
+        "questions": [
+          {
+            "id": "l_2026w44_r3_0",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r3_1",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r3_2",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r3_3",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r3_4",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r3_5",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          }
+        ]
+      },
+      {
+        "name": "Food",
+        "questions": [
+          {
+            "id": "l_2026w44_r4_0",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r4_1",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r4_2",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r4_3",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r4_4",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r4_5",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          }
+        ]
+      },
+      {
+        "name": "Riddles",
+        "questions": [
+          {
+            "id": "l_2026w44_r5_0",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r5_1",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r5_2",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r5_3",
+            "category": "animals",
+            "difficulty": "easy",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r5_4",
+            "category": "animals",
+            "difficulty": "medium",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          },
+          {
+            "id": "l_2026w44_r5_5",
+            "category": "animals",
+            "difficulty": "hard",
+            "question": "Which animal can sleep standing up?",
+            "options": [
+              "Penguin",
+              "Horse",
+              "Rabbit"
+            ],
+            "answer_index": 1,
+            "answer": "Horse",
+            "fun_fact": "Horses lock their legs so they can doze without falling.",
+            "source_url": "https://example.org/horse",
+            "visual_query": "horse sleeping field",
+            "verified": true,
+            "flags": []
+          }
+        ]
+      }
+    ],
+    "bonus": {
+      "id": "l_2026w44_bonus",
+      "category": "animals",
+      "difficulty": "hard",
+      "question": "Which animal can sleep standing up?",
+      "options": [
+        "Penguin",
+        "Horse",
+        "Rabbit"
+      ],
+      "answer_index": 1,
+      "answer": "Horse",
+      "fun_fact": "Horses lock their legs so they can doze without falling.",
+      "source_url": "https://example.org/horse",
+      "visual_query": "horse sleeping field",
+      "verified": true,
+      "flags": []
+    },
+    "titles": [
+      "Family Quiz Night #1",
+      "30 Questions: Can You Beat Your Kids?",
+      "Family Quiz Night"
+    ],
+    "chosen_title_index": 0,
+    "description": "Grab a pen and keep score!",
+    "first_comment": "What was your score?",
+    "chapters": []
+  },
+  "report_md": ""
+}
