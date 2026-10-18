@@ -386,7 +386,8 @@ def main(argv=None) -> int:
             repo.save_queue(repo.queue())
             repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
     except Exception as e:  # noqa: BLE001 — public logs: type only
-        safe("failed", status=a.command, error_type=type(e).__name__)
+        safe("failed", status=a.command, error_type=type(e).__name__,
+             http=getattr(e, "http", None), reason=getattr(e, "reason", None))
         return 1
     return 0
 

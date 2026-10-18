@@ -74,3 +74,21 @@ def test_errors_never_echo_key(monkeypatch):
     with pytest.raises(gemini.GeminiError) as e:
         gemini.generate_json("x", {})
     assert "k-test" not in str(e.value)
+
+
+def test_http_error_carries_safe_status_and_reason(monkeypatch):
+    payload = {"error": {"code": 404, "status": "NOT_FOUND", "message": "models/x is not found"}}
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: Resp(404, payload))
+    with pytest.raises(gemini.GeminiError) as e:
+        gemini.generate_json("x", {})
+    assert e.value.http == 404 and e.value.reason == "NOT_FOUND"
+
+
+def test_cli_failure_log_includes_http_and_reason(monkeypatch, capsys):
+    from fbc import cli
+    err = gemini.GeminiError("secret text", http=400, reason="INVALID_ARGUMENT")
+    monkeypatch.setattr(cli, "cmd_generate", lambda *a, **k: (_ for _ in ()).throw(err))
+    monkeypatch.setattr(cli, "ContentRepo", lambda *a, **k: object())
+    assert cli.main(["generate", "--dry-run", "--week", "2026-W45"]) == 1
+    out = capsys.readouterr().out
+    assert '"http": 400' in out and '"reason": "INVALID_ARGUMENT"' in out and "secret text" not in out

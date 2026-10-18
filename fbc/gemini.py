@@ -15,7 +15,11 @@ API = "https://generativelanguage.googleapis.com/v1beta"
 
 
 class GeminiError(RuntimeError):
-    pass
+    """`http` and `reason` (Google's error status, e.g. NOT_FOUND) are safe to print in public logs."""
+
+    def __init__(self, msg: str = "", http: int | None = None, reason: str | None = None):
+        super().__init__(msg)
+        self.http, self.reason = http, reason
 
 
 class QuotaExceeded(ResumeLater, GeminiError):
@@ -43,7 +47,13 @@ def _post(url: str, body: dict, timeout: int = 180) -> dict:
             wait = 0
         time.sleep(min(max(wait, 5 * 2 ** attempt), 60))
     if r.status_code >= 400:
-        raise GeminiError(f"Gemini HTTP {r.status_code}: {r.text[:300]}".replace(key, "[redacted]"))
+        try:
+            reason = r.json().get("error", {}).get("status")
+        except (ValueError, AttributeError):
+            reason = None
+        reason = reason if isinstance(reason, str) and re.fullmatch(r"[A-Z_]{2,40}", reason) else None
+        raise GeminiError(f"Gemini HTTP {r.status_code}: {r.text[:300]}".replace(key, "[redacted]"),
+                          http=r.status_code, reason=reason)
     return r.json()
 
 

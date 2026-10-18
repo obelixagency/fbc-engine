@@ -3,7 +3,7 @@ never question text, captions, tokens or unpublished media URLs."""
 import json
 import sys
 
-ALLOWED = {"id", "count", "platform", "status", "week", "kind", "attempts", "error_type"}
+ALLOWED = {"id", "count", "platform", "status", "week", "kind", "attempts", "error_type", "http", "reason"}
 
 
 def safe(event: str, **fields) -> None:
