@@ -23,7 +23,7 @@ body { margin: 0; background: var(--navy); color: var(--white); font-family: "Ar
 #progress { position: absolute; inset: 0; background: var(--yellow); transform-origin: 0 50%; }
 #brand { position: absolute; left: 0; right: 0; top: calc(var(--u) * {{ BRAND_TOP }}); text-align: center; font-weight: 700; letter-spacing: 0.3em; font-size: calc(var(--u) * 1.5); color: var(--yellow); }
 .scene { position: absolute; inset: 0; }
-.stage { position: absolute; left: calc(var(--u) * {{ STAGE_L }}); right: calc(var(--u) * {{ STAGE_R }}); top: calc(var(--u) * {{ STAGE_T }}); bottom: calc(var(--u) * {{ STAGE_B }}); display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: calc(var(--u) * 1.8); }
+.stage { position: absolute; left: calc(var(--u) * {{ STAGE_L }}); right: calc(var(--u) * {{ STAGE_R }}); top: calc(var(--u) * {{ STAGE_T }}); bottom: calc(var(--u) * {{ STAGE_B }}); display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: calc(var(--u) * {{ GAP }}); }
 .pill { align-self: center; background: var(--pink); color: var(--white); font-weight: 700; font-size: calc(var(--u) * 1.9); padding: calc(var(--u) * 0.5) calc(var(--u) * 1.6); border-radius: 999px; letter-spacing: 0.06em; }
 .question { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ Q_SIZE }}); line-height: 1.12; text-align: center; color: var(--white); text-shadow: 0 calc(var(--u) * 0.3) calc(var(--u) * 1.2) rgba(0,0,0,0.45); }
 .opts { display: flex; flex-direction: column; gap: calc(var(--u) * 1.1); }
@@ -31,9 +31,10 @@ body { margin: 0; background: var(--navy); color: var(--white); font-family: "Ar
 .opts.row .opt { flex: 1; justify-content: center; }
 .opt { display: flex; align-items: center; gap: calc(var(--u) * 1.2); background: var(--white); color: var(--navy); border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.6); font-weight: 700; font-size: calc(var(--u) * {{ OPT_SIZE }}); }
 .opt b { color: var(--pink); font-family: "Archivo Black", sans-serif; }
-.cd { align-self: center; flex-shrink: 0; position: relative; width: calc(var(--u) * 8); height: calc(var(--u) * 8); border-radius: 50%; border: calc(var(--u) * 0.7) solid var(--yellow); box-sizing: border-box; }
+.foot { position: relative; flex-shrink: 0; height: calc(var(--u) * 11); }
+.cd { position: absolute; left: 50%; top: 0; margin-left: calc(var(--u) * -4); width: calc(var(--u) * 8); height: calc(var(--u) * 8); border-radius: 50%; border: calc(var(--u) * 0.7) solid var(--yellow); box-sizing: border-box; }
 .cd span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * 4.2); color: var(--yellow); opacity: 0; }
-.reveal { align-self: center; flex-shrink: 0; text-align: center; background: var(--green); color: #0B3D2A; border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.8); max-width: 100%; opacity: 0; }
+.reveal { position: absolute; left: 0; right: 0; top: 0; text-align: center; background: var(--green); color: #0B3D2A; border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.8); max-width: 100%; opacity: 0; }
 .reveal .ans { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ OPT_SIZE }}); }
 .reveal .fact { font-weight: 600; font-size: calc(var(--u) * 2.2); margin-top: calc(var(--u) * 0.4); }
 .big { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ BIG_SIZE }}); line-height: 1.05; text-align: center; color: var(--yellow); text-shadow: 0 calc(var(--u) * 0.3) calc(var(--u) * 1.2) rgba(0,0,0,0.5); }
@@ -79,8 +80,10 @@ body { margin: 0; background: var(--navy); color: var(--white); font-family: "Ar
       </div>
       {% endif %}
       {% if s.kind != "wyr" %}
+      <div class="foot">
       <div class="cd" id="sc{{ s.idx }}-cd">{% for k in s.countdown_numbers %}<span id="sc{{ s.idx }}-cd{{ loop.index0 }}">{{ k }}</span>{% endfor %}</div>
       <div class="reveal" id="sc{{ s.idx }}-rv"><div class="ans">{{ s.reveal_text }}</div>{% if s.data.fun_fact and s.kind != "tf" %}<div class="fact">{{ s.data.fun_fact }}</div>{% endif %}</div>
+      </div>
       {% endif %}
     {% elif s.kind == "outro" %}
       <div class="big" id="sc{{ s.idx }}-big">{{ s.outro_text }}</div>

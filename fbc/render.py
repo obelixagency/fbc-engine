@@ -34,10 +34,10 @@ def _layout(tl: Timeline) -> dict:
     portrait = tl.height > tl.width
     if portrait:  # 1080x1920, u = 20px; safe zone: top 250px, bottom 420px
         return dict(U=20, BRAND_TOP=1.8, STAGE_L=4, STAGE_R=4, STAGE_T=13.5, STAGE_B=22,
-                    Q_SIZE=4.6, OPT_SIZE=3.2, BIG_SIZE=6.2, OVERLAY=0.5)
+                    Q_SIZE=4.6, OPT_SIZE=3.2, BIG_SIZE=6.2, OVERLAY=0.5, GAP=1.8)
     # 1920x1080, u = 20px; questions: picture panel on the left, text on the right
     return dict(U=20, BRAND_TOP=2.2, STAGE_L=52, STAGE_R=4, STAGE_T=8, STAGE_B=5,
-                Q_SIZE=3.4, OPT_SIZE=2.6, BIG_SIZE=4.6, OVERLAY=0.62)
+                Q_SIZE=3.4, OPT_SIZE=2.6, BIG_SIZE=4.6, OVERLAY=0.62, GAP=1.2)
 
 
 def _reveal_text(seg) -> str:
@@ -111,6 +111,8 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
             continue
         cd0, cd = seg.data["countdown_start"], seg.data["countdown"]
         nums = _countdown_numbers(cd)
+        add("fromTo", f"{p}-cd", cd0 - 0.15, {"scale": 1, "opacity": 1, "duration": 0.2, "ease": "back.out(2)"},
+            {"scale": 0, "opacity": 0})
         for j, _ in enumerate(nums):
             at = cd0 + j * (cd / len(nums))
             add("fromTo", f"{p}-cd{j}", at, {"scale": 1, "opacity": 1, "duration": 0.18, "ease": "back.out(3)"},
@@ -118,7 +120,8 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
             add("set", f"{p}-cd{j}", at + cd / len(nums) - 0.01, {"opacity": 0})
         rv = seg.data["reveal_at"]
         add("to", f"{p}-cd", rv, {"scale": 0, "opacity": 0, "duration": 0.2})
-        add("fromTo", "#flash", rv, {"opacity": 0, "duration": 0.45, "ease": "power2.out"}, {"opacity": 0.35})
+        add("set", "#flash", rv, {"opacity": 0.35})   # set+to, not fromTo: a fromTo would pre-apply 0.35 at t=0
+        add("to", "#flash", rv + 0.01, {"opacity": 0, "duration": 0.45, "ease": "power2.out"})
         ai = seg.data.get("answer_index", -1)
         for k in range(n_opts):
             if k == ai:
