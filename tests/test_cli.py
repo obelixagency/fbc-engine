@@ -80,3 +80,15 @@ def test_pr_body_lists_every_question():
     body = cli.pr_body(b)
     assert body.count("| s_2026w44_") == sum(len(s.questions) for s in b.shorts)
     assert "Merge to approve" in body
+
+
+def test_generate_failure_opens_private_issue_with_problems(repo, monkeypatch):
+    from fbc.models import BatchError
+
+    def boom(*a, **k):
+        raise BatchError(["only 9 of 14 Shorts survived", 's_x_01: question has 30 words (max 12)'])
+    monkeypatch.setattr(cli, "build_batch", boom)
+    with pytest.raises(BatchError):
+        cli.cmd_generate(repo, "2026-W45", dry_run=True, today=NOW.date())
+    title, body = repo.issues[0][-3], repo.issues[0][-1]
+    assert "2026-W45" in title and "30 words" in body

@@ -72,7 +72,14 @@ def cmd_generate(repo: ContentRepo, week: str, dry_run: bool, today: date, gen=N
     episode = len(repo.merged_weeks()) + 1
     report = (repo.path / "analytics" / "last_report.md").read_text() if (repo.path / "analytics" / "last_report.md").exists() else ""
     kw = {"gen": gen} if gen else {}
-    batch = build_batch(week, weights, used, episode, random.Random(week), today=today, report_md=report, **kw)
+    try:
+        batch = build_batch(week, weights, used, episode, random.Random(week), today=today, report_md=report, **kw)
+    except BatchError as e:   # private repo: the full reasons are safe there, never in public logs
+        repo.open_issue(f"{'[dry run] ' if dry_run else ''}Batch {week} generation failed",
+                        "Generation stopped before opening a PR. Reasons (first ones):\n\n"
+                        + "\n".join(f"- {p}" for p in e.problems)
+                        + "\n\nRe-run **Generate weekly batch** after fixing, or wait for the next Friday run.")
+        raise
     body = pr_body(batch)
     if dry_run:
         out = WORK / "dry"; out.mkdir(parents=True, exist_ok=True)

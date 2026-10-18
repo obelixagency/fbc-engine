@@ -81,24 +81,29 @@ def _shorts(formats, weights, used, rng, gen, today, seen) -> list[dict]:
     return kept
 
 
-def _assign_and_filter(cands: list[dict], week: str, used, today, seen, n: int) -> list[dict]:
-    out = []
+def _assign_and_filter(cands: list[dict], week: str, used, today, seen, n: int,
+                       out: list[dict] | None = None, rejects: list[str] | None = None) -> list[dict]:
+    out = [] if out is None else out
+    rejects = [] if rejects is None else rejects
     for cand in cands:
+        if len(out) == n:
+            break
         idx = len(out)
         sid = f"s_{_wk(week)}_{idx:02d}"
         cand["id"] = sid
         for k, qd in enumerate(cand.get("questions", [])):
             qd["id"] = f"q_{_wk(week)}_{idx:02d}_{k}"
-        if short_problems(cand):
+        problems = short_problems(cand)
+        if problems:
+            rejects.extend(problems)
             continue
         if cand["format"] != "would_you_rather":
             snapshot = set(seen)
             if not all(_fresh(qd, used, seen, today) for qd in cand["questions"]):
                 seen.clear(); seen.update(snapshot)
+                rejects.append(f"{sid}: duplicate of a recent question")
                 continue
         out.append(cand)
-        if len(out) == n:
-            break
     return out
 
 
@@ -109,15 +114,20 @@ def _long(week, episode, used, gen, today, seen) -> dict:
     for r_i, name in enumerate(ROUND_NAMES, 1):
         src = next((r for r in raw.get("rounds", []) if r.get("name") == name), None) or \
             (raw.get("rounds", [])[r_i - 1] if len(raw.get("rounds", [])) >= r_i else {"questions": []})
-        qs = []
+        qs, rejects = [], []
         for qd in src.get("questions", []):
             qd = dict(qd, id=f"{lid}_r{r_i}_{len(qs)}", source_url=qd.get("source_url", ""), verified=False, flags=[])
-            if not question_problems(qd) and _fresh(qd, used, seen, today):
+            problems = question_problems(qd)
+            if problems:
+                rejects.extend(problems)
+            elif _fresh(qd, used, seen, today):
                 qs.append(qd)
+            else:
+                rejects.append(f"{qd['id']}: duplicate of a recent question")
             if len(qs) == PER_ROUND:
                 break
         if len(qs) < PER_ROUND:
-            raise BatchError([f"{lid}: round {name!r} has only {len(qs)} usable questions"])
+            raise BatchError([f"{lid}: round {name!r} has only {len(qs)} usable questions", *rejects[:20]])
         rounds.append({"name": name, "questions": qs})
     bonus = None
     for qd in raw.get("bonus", []):
@@ -137,10 +147,20 @@ def build_batch(week: str, weights: dict, used: list[dict], episode: int, rng: r
     today = today or date.today()
     seen: set = set()
     formats = pick_formats(weights, N_SHORTS, rng)
+    rejects: list[str] = []
     cands = _shorts(formats, weights, used, rng, gen, today, seen)
-    shorts = _assign_and_filter(cands, week, used, today, seen, N_SHORTS)
+    shorts = _assign_and_filter(cands, week, used, today, seen, N_SHORTS, rejects=rejects)
+    if len(shorts) < N_SHORTS:   # one top-up call for the formats that are still missing
+        have = [x["format"] for x in shorts]
+        missing = list(formats)
+        for f in have:
+            if f in missing:
+                missing.remove(f)
+        cands = _shorts(missing[:N_SHORTS - len(shorts)] or formats[:1], weights, used, rng, gen, today, seen)
+        _assign_and_filter(cands, week, used, today, seen, N_SHORTS, out=shorts, rejects=rejects)
     if len(shorts) < N_SHORTS:
-        raise BatchError([f"only {len(shorts)} of {N_SHORTS} Shorts survived validation and de-duplication"])
+        raise BatchError([f"only {len(shorts)} of {N_SHORTS} Shorts survived validation and de-duplication",
+                          *rejects[:40]])
     long = _long(week, episode, used, gen, today, seen)
     batch = batch_from_obj({"week": week, "shorts": shorts, "long": long, "report_md": report_md})
     to_check = [q for s in batch.shorts if s.format != "would_you_rather" for q in s.questions]

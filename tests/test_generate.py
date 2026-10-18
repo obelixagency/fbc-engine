@@ -91,3 +91,34 @@ def test_too_few_survivors_raises():
         return []
     with pytest.raises(BatchError):
         build(gen)
+
+
+def test_tops_up_missing_shorts_with_one_more_call():
+    good, _ = fake_gen_factory()
+    calls = {"shorts": 0}
+
+    def gen(prompt, schema, grounded=False, **kw):
+        out = good(prompt, schema, grounded)
+        if not grounded and "Family Quiz Night" not in prompt:
+            calls["shorts"] += 1
+            if calls["shorts"] == 1:   # first reply: half the items break the word limit
+                for s in out[::2]:
+                    s["questions"][0]["question"] = "word " * 30
+        return out
+    b = build(gen)
+    assert len(b.shorts) == 14 and calls["shorts"] == 2
+
+
+def test_too_few_survivors_error_lists_rejection_reasons():
+    good, _ = fake_gen_factory()
+
+    def gen(prompt, schema, grounded=False, **kw):
+        out = good(prompt, schema, grounded)
+        if not grounded and "Family Quiz Night" not in prompt:
+            for s in out:
+                s["questions"][0]["question"] = "word " * 30
+        return out
+    with pytest.raises(BatchError) as e:
+        build(gen)
+    text = "\n".join(e.value.problems)
+    assert "only 0 of 14" in text and "words (max" in text
