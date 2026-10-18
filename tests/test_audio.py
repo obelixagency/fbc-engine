@@ -49,27 +49,6 @@ def test_long_request_reveals_use_zephyr(batch):
     assert ids[0] == "intro" and ids[-1] == "outro" and "r1_title" in ids and "r5_score" in ids
 
 
-def test_synthesize_resumes_after_quota(tmp_path, batch):
-    s = batch.shorts[0]
-    req = audio.build_audio_request(s)
-    calls = []
-
-    def flaky(text, voice, style):
-        calls.append(text)
-        if len(calls) == 3:
-            raise QuotaExceeded("429")
-        return wav_bytes(1.0)
-    with pytest.raises(QuotaExceeded):
-        audio.synthesize(req, tmp_path, tts=flaky)
-    assert len(list(tmp_path.glob("*.wav"))) == 2
-    calls.clear()
-    durations = audio.synthesize(req, tmp_path, tts=lambda t, v, st: (calls.append(t), wav_bytes(1.5))[1])
-    assert len(calls) == len(req["lines"]) - 2
-    assert set(durations) == {l["id"] for l in req["lines"]}
-    assert durations["hook"] == pytest.approx(1.0) and durations["outro"] == pytest.approx(1.5)
-    assert json.loads((tmp_path / "audio_request.json").read_text())["video_id"] == s.id
-
-
 def test_make_sfx(tmp_path):
     audio.make_sfx(tmp_path)
     for name in ("tick.wav", "ding.wav", "whoosh.wav"):

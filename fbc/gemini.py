@@ -72,21 +72,40 @@ def generate_json(prompt: str, schema: dict, grounded: bool = False, temperature
     return json.loads(text) if not grounded else _extract_json(text)
 
 
-def tts_wav(text: str, voice: str, style: str) -> bytes:
-    content = {"type": "text", "text": text}
-    if style:
+def _pcm_to_wav(pcm: bytes, rate: int) -> bytes:
+    import io
+    import wave
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def tts_wav(text: str, voice: str, style: str, model: str = TTS_MODEL) -> bytes:
+    """3.8 models take style as a speech_metadata annotation and return WAV; older ones take it as
+    a text prefix and return 16-bit PCM (audio/L16;rate=...), wrapped here into WAV."""
+    modern = model.startswith("gemini-3.8-")
+    content = {"type": "text", "text": text if modern or not style else
+               f"Read the following text with this delivery: {style}\n\n{text}"}
+    if style and modern:
         content["annotations"] = [{"type": "speech_metadata", "style": style}]
-    body = {"model": TTS_MODEL, "input": [{"type": "user_input", "content": [content]}],
-            "response_format": {"type": "audio", "mime_type": "audio/wav"},
+    body = {"model": model, "input": [{"type": "user_input", "content": [content]}],
+            "response_format": {"type": "audio", "mime_type": "audio/wav"} if modern else {"type": "audio"},
             "generation_config": {"speech_config": [{"voice": voice}]}, "store": False}
     data = _post(f"{API}/interactions", body, timeout=120)
     if data.get("status") != "completed":
         raise GeminiError(f"TTS did not complete ({data.get('status')})")
     parts = [c for s in data.get("steps", []) if s.get("type") == "model_output"
              for c in s.get("content", []) if c.get("type") == "audio"]
-    if len(parts) != 1 or parts[0].get("mime_type") != "audio/wav":
-        raise GeminiError("TTS returned no single WAV block")
+    if len(parts) != 1:
+        raise GeminiError("TTS returned no single audio block")
     wav = base64.b64decode(parts[0]["data"])
+    mime = parts[0].get("mime_type", "")
+    if mime.lower().startswith("audio/l16"):
+        m = re.search(r"rate=(\d+)", mime)
+        wav = _pcm_to_wav(wav, int(m.group(1)) if m else 24000)
+    elif mime != "audio/wav":
+        raise GeminiError("TTS returned an unsupported audio format")
     if wav[:4] != b"RIFF" or wav[8:12] != b"WAVE":
         raise GeminiError("TTS returned invalid WAV")
     return wav

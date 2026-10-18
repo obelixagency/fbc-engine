@@ -4,12 +4,13 @@ mid-week continues on the next tick."""
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import wave
 from pathlib import Path
 
 from .config import HOST_STYLE, HOST_VOICE, REVEAL_STYLE, REVEAL_VOICE, TTS_MODEL
-from .gemini import tts_wav
+from .gemini import QuotaExceeded, tts_wav
 from .models import LongItem, ShortItem
 
 OUTROS = {
@@ -75,19 +76,96 @@ def wav_duration(path: Path) -> float:
         return w.getnframes() / float(w.getframerate())
 
 
-def synthesize(req: dict, outdir: Path, tts=tts_wav) -> dict[str, float]:
+SEP = "\n\n...\n\n"
+CHUNK = 12                      # lines per TTS call
+TTS_MODELS = (TTS_MODEL, "gemini-3.1-flash-tts-preview")   # each has its own free daily quota
+PAUSE_HINT = " Leave a clear two-second pause between lines."
+MIN_GAP_S = 0.45
+
+
+def _silences(path: Path) -> list[tuple[float, float]]:
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-af",
+                        f"silencedetect=noise=-40dB:d={MIN_GAP_S}", "-f", "null", "-"], capture_output=True, text=True)
+    starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", r.stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", r.stderr)]
+    return list(zip(starts, ends))
+
+
+def _cut(src: Path, dest: Path, t0: float, t1: float | None) -> None:
+    trim = f"atrim=start={t0:.3f}" + (f":end={t1:.3f}" if t1 is not None else "")
+    strip = "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08"
+    af = f"{trim},asetpts=PTS-STARTPTS,{strip},areverse,{strip},areverse,apad=pad_dur=0.12"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-af", af, "-ar", "24000", "-ac", "1",
+                    str(dest)], check=True)
+
+
+def split_at_pauses(wav: Path, n: int, dests: list[Path]) -> bool:
+    """Cut a batched take into n pieces at its n-1 longest pauses. False if it cannot be split cleanly."""
+    if n == 1:
+        _cut(wav, dests[0], 0.0, None)
+        return wav_duration(dests[0]) > 0.3
+    total = wav_duration(wav)
+    gaps = [(e - s, s, e) for s, e in _silences(wav) if s > 0.05 and e < total - 0.05]
+    if len(gaps) < n - 1:
+        return False
+    cuts = sorted(sorted(gaps, reverse=True)[: n - 1], key=lambda g: g[1])
+    bounds = [0.0] + [(s + e) / 2 for _, s, e in cuts] + [None]
+    for k, dest in enumerate(dests):
+        _cut(wav, dest, bounds[k], bounds[k + 1])
+        if wav_duration(dest) < 0.3:
+            return False
+    return True
+
+
+def _tts_any(tts, text: str, voice: str, style: str) -> bytes:
+    last = None
+    for model in TTS_MODELS:
+        try:
+            return tts(text, voice, style, model=model)
+        except QuotaExceeded as e:   # this model's daily quota is used up: try the next one
+            last = e
+    raise last
+
+
+def _groups(req: dict, missing: list[dict]) -> list[tuple[str, list[dict]]]:
+    by_voice: dict[str, list[dict]] = {}
+    for line in missing:
+        by_voice.setdefault(line.get("voice", req["default_voice"]), []).append(line)
+    return [(v, ls[i:i + CHUNK]) for v, ls in by_voice.items() for i in range(0, len(ls), CHUNK)]
+
+
+def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) -> dict[str, float]:
+    """Voice every line of req into outdir/<line id>.wav, a few lines per TTS call (free tier allows
+    ~10 calls/day per model). Finished lines are kept, so a quota stop resumes next tick."""
+    import time
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "audio_request.json").write_text(json.dumps(req, indent=2, ensure_ascii=False))
-    durations = {}
-    for line in req["lines"]:
-        path = outdir / f"{line['id']}.wav"
-        if not path.exists():
-            data = tts(line["text"], line.get("voice", req["default_voice"]), line.get("style", req["default_style"]))
-            tmp = path.with_suffix(".part")
-            tmp.write_bytes(data)
-            tmp.rename(path)
-        durations[line["id"]] = wav_duration(path)
-    return durations
+    missing = [l for l in req["lines"] if not (outdir / f"{l['id']}.wav").exists()]
+    first = True
+    for voice, lines in _groups(req, missing):
+        if not first and spacing_s:
+            time.sleep(spacing_s)    # free tier: 3 requests/minute
+        first = False
+        style = req["default_style"] + PAUSE_HINT
+        take = outdir / f"_take_{lines[0]['id']}.wav"
+        take.write_bytes(_tts_any(tts, SEP.join(l["text"] for l in lines), voice, style))
+        dests = [outdir / f"{l['id']}.part.wav" for l in lines]
+        ok = split_at_pauses(take, len(lines), dests)
+        take.unlink()
+        if ok:
+            for l, d in zip(lines, dests):
+                d.rename(outdir / f"{l['id']}.wav")
+            continue
+        for d in dests:
+            d.unlink(missing_ok=True)
+        for l in lines:   # the take could not be split cleanly: voice these lines one by one
+            if spacing_s:
+                time.sleep(spacing_s)
+            data = _tts_any(tts, l["text"], l.get("voice", voice), l.get("style", req["default_style"]))
+            part = outdir / f"{l['id']}.part.wav"
+            part.write_bytes(data)
+            part.rename(outdir / f"{l['id']}.wav")
+    return {l["id"]: wav_duration(outdir / f"{l['id']}.wav") for l in req["lines"]}
 
 
 SFX = {
