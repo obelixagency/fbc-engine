@@ -175,8 +175,10 @@ def write_project(tl: Timeline, durations: dict, assets: dict[str, Path], outdir
         W=tl.width, H=tl.height, DURATION=round(tl.duration, 3), backgrounds=backgrounds, scenes=scenes,
         audios=_audios(tl, durations, sfx_len), actions_json=json.dumps(actions), **_layout(tl))
     (outdir / "index.html").write_text(html)
-    (outdir / "qa.json").write_text(json.dumps({"kind": kind, "duration": tl.duration,
-                                                 "countdowns": tl.countdown_windows(), "chapters": tl.chapters}))
+    voice = [[a["start"], round(a["start"] + a["duration"], 3)] for a in _audios(tl, durations, sfx_len) if a["track"] == 2]
+    (outdir / "qa.json").write_text(json.dumps({"kind": kind, "duration": tl.duration, "min": tl.min_duration,
+                                                 "voice": voice, "countdowns": tl.countdown_windows(),
+                                                 "chapters": tl.chapters}))
     return outdir
 
 

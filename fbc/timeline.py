@@ -31,6 +31,7 @@ class Timeline:
     fps: int = 30
     chapters: list[str] = field(default_factory=list)
     loop_safe: bool = True
+    min_duration: float = 0.0
 
     def countdown_windows(self) -> list[tuple[float, float]]:
         return [(s.data["countdown_start"], s.data["countdown_start"] + s.data["countdown"])
@@ -115,7 +116,7 @@ def build_short_timeline(item: ShortItem, durations: dict, clips: dict) -> Timel
         segs, total = _short_layout(item, durations, clips, c, extra, 0.0)
     if total < lo:
         segs, total = _short_layout(item, durations, clips, c, extra if n_reveals else 0.0, lo - total)
-    return Timeline(1080, 1920, round(total, 3), segs)
+    return Timeline(1080, 1920, round(total, 3), segs, min_duration=lo)
 
 
 LONG_MIN, LONG_MAX = 480.0, 720.0
@@ -180,4 +181,4 @@ def build_long_timeline(item: LongItem, durations: dict, clips: dict) -> Timelin
         segs, total, chapters = _long_layout(item, durations, clips, c)
     if not LONG_MIN - 0.01 <= total <= LONG_MAX:
         raise TimelineError(f"{item.id}: long video is {total:.0f}s (needs {LONG_MIN:.0f}-{LONG_MAX:.0f}s)")
-    return Timeline(1920, 1080, round(total, 3), segs, chapters=chapters, loop_safe=False)
+    return Timeline(1920, 1080, round(total, 3), segs, chapters=chapters, loop_safe=False, min_duration=LONG_MIN)
