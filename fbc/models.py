@@ -181,12 +181,57 @@ def question_problems(d: dict, kind: str = "mcq") -> list[str]:
     return problems
 
 
+N_SHORTS = 14
+
+
+def _types(d: dict, problems: list[str]) -> None:
+    """Shape/type checks so a hand-edited file never crashes deeper code."""
+    if not isinstance(d.get("shorts"), list) or not isinstance(d.get("long"), dict):
+        problems.append("batch.json must have a \"shorts\" list and a \"long\" object")
+        return
+    for s in d["shorts"]:
+        if not isinstance(s, dict) or not isinstance(s.get("questions"), list):
+            problems.append("every short must be an object with a \"questions\" list")
+            continue
+        for q in s["questions"]:
+            _qtypes(q, problems)
+    for r in d["long"].get("rounds", []) if isinstance(d["long"].get("rounds"), list) else []:
+        for q in r.get("questions", []) if isinstance(r, dict) else []:
+            _qtypes(q, problems)
+    if isinstance(d["long"].get("bonus"), dict):
+        _qtypes(d["long"]["bonus"], problems)
+
+
+def _qtypes(q, problems):
+    if not isinstance(q, dict):
+        problems.append("every question must be an object")
+        return
+    qid = q.get("id", "?")
+    if "answer_index" in q and (not isinstance(q["answer_index"], int) or isinstance(q["answer_index"], bool)):
+        problems.append(f"{qid}: answer_index must be a number (0, 1 or 2)")
+    if "options" in q and not (isinstance(q["options"], list) and all(isinstance(o, str) for o in q["options"])):
+        problems.append(f"{qid}: options must be a list of texts")
+    for k in ("question", "answer", "fun_fact", "category", "difficulty", "visual_query"):
+        if k in q and not isinstance(q[k], str):
+            problems.append(f"{qid}: {k} must be text")
+
+
 def parse_batch(raw: str) -> Batch:
     try:
         d = json.loads(raw)
     except json.JSONDecodeError as e:
         raise BatchError([f"batch.json is not valid JSON (line {e.lineno}, column {e.colno}): {e.msg}"])
+    if not isinstance(d, dict):
+        raise BatchError(["batch.json must be a JSON object"])
     problems: list[str] = []
+    _types(d, problems)
+    if problems:
+        raise BatchError(problems)
+    ids = [s.get("id") for s in d["shorts"]]
+    if len(ids) != N_SHORTS:
+        problems.append(f"batch needs exactly {N_SHORTS} shorts (has {len(ids)})")
+    if len(set(ids)) != len(ids):
+        problems.append("short ids must be unique")
     shorts: list[ShortItem] = []
     for s in d.get("shorts", []):
         sid, fmt = s.get("id", "?"), s.get("format")

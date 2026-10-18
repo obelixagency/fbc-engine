@@ -43,8 +43,10 @@ def due_items(queue: list[dict], now: datetime) -> list[dict]:
     return [e for e in queue if e["status"] == "produced" and _slot(e) <= now]
 
 
-def late_items(queue: list[dict], now: datetime, grace_h: float = LIMITS["late_grace_h"]) -> list[dict]:
-    return [e for e in queue if e["status"] not in ("published",) and _slot(e) + timedelta(hours=grace_h) < now]
+def late_items(queue: list[dict], now: datetime, grace_h: float = LIMITS["late_grace_h"], window_h: float = 24) -> list[dict]:
+    """Unpublished entries 2.5 h past their slot, only within a day (so an Issue is opened once, not forever)."""
+    return [e for e in queue if e["status"] not in ("published", "skipped")
+            and _slot(e) + timedelta(hours=grace_h) < now <= _slot(e) + timedelta(hours=window_h)]
 
 
 def to_produce(queue: list[dict], now: datetime, hours: float = 48) -> list[dict]:

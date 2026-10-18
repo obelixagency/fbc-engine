@@ -42,6 +42,7 @@ def test_generate_json_grounded_parses_fenced_block(monkeypatch):
 
 
 def test_quota(monkeypatch):
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
     monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: Resp(429, {"error": {"code": 429}}))
     with pytest.raises(gemini.QuotaExceeded):
         gemini.generate_json("x", {})

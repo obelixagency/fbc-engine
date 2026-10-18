@@ -4,10 +4,12 @@ gemini-3.8-flash-tts: style goes in a speech_metadata annotation, the reply is a
 import base64
 import json
 import re
+import time
 
 import requests
 
 from .config import env, TTS_MODEL
+from .errors import ResumeLater
 
 API = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -16,8 +18,11 @@ class GeminiError(RuntimeError):
     pass
 
 
-class QuotaExceeded(GeminiError):
+class QuotaExceeded(ResumeLater, GeminiError):
     pass
+
+
+RETRIES = 4
 
 
 def _headers() -> dict:
@@ -26,9 +31,17 @@ def _headers() -> dict:
 
 def _post(url: str, body: dict, timeout: int = 180) -> dict:
     key = env("GEMINI_API_KEY")
-    r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
-    if r.status_code == 429:
-        raise QuotaExceeded("Gemini quota exceeded (429)")
+    for attempt in range(RETRIES):
+        r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
+        if r.status_code != 429:
+            break
+        if attempt == RETRIES - 1:
+            raise QuotaExceeded("Gemini quota exceeded (429)")
+        try:
+            wait = float(getattr(r, "headers", {}).get("Retry-After", 0))
+        except (TypeError, ValueError):
+            wait = 0
+        time.sleep(min(max(wait, 5 * 2 ** attempt), 60))
     if r.status_code >= 400:
         raise GeminiError(f"Gemini HTTP {r.status_code}: {r.text[:300]}".replace(key, "[redacted]"))
     return r.json()

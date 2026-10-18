@@ -26,7 +26,7 @@ from . import analytics as an
 from .audio import build_audio_request, make_sfx, synthesize
 from .config import CONTENT_REPO, LIMITS
 from .dedupe import fingerprint
-from .gemini import QuotaExceeded
+from .errors import ResumeLater
 from .generate import build_batch
 from .log import safe
 from .models import Batch, BatchError, LongItem
@@ -92,6 +92,13 @@ def _item_meta(batch: Batch, item) -> dict:
             "title": item.title, "description": item.description, "first_comment": item.first_comment}
 
 
+def _batch_issue(repo: ContentRepo, week: str, problems: list[str]) -> None:
+    repo.open_issue(f"Batch {week} cannot be produced",
+                    "The merged `batch.json` has problems. Fix them in `fbc-content` and the next run picks it up:\n\n"
+                    + "\n".join(f"- {p}" for p in problems))
+    safe("batch_invalid", week=week, count=len(problems))
+
+
 def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
     """Queue every merged batch that is not queued yet. A broken batch opens an Issue instead."""
     queue = repo.queue()
@@ -102,15 +109,18 @@ def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
             continue
         try:
             batch = repo.load_batch(week)
+            if batch.week != week:
+                raise BatchError([f'"week" is {batch.week!r} but the folder is {week!r}'])
+            entries = plan_queue(batch)
         except BatchError as e:
-            repo.open_issue(f"Batch {week} cannot be produced",
-                            "The merged `batch.json` has problems. Fix them in `fbc-content` and the next run picks it up:\n\n"
-                            + "\n".join(f"- {p}" for p in e.problems))
-            safe("batch_invalid", week=week, count=len(e.problems))
+            _batch_issue(repo, week, e.problems)
+            continue
+        except Exception as e:  # noqa: BLE001 — any malformed edit becomes an Issue, never a stuck tick
+            _batch_issue(repo, week, [f"{type(e).__name__}: {e}"])
             continue
         items = {s.id: s for s in batch.shorts} | {batch.long.id: batch.long}
         now = datetime.now(timezone.utc) if now_ is None else now_
-        for entry in plan_queue(batch):
+        for entry in entries:
             entry.update(_item_meta(batch, items[entry["id"]]))
             if datetime.fromisoformat(entry["slot_utc"]) < now:
                 entry["status"] = "skipped"   # batch merged after this slot: never dump late videos at once
@@ -139,7 +149,8 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
     clips, assets, used_ids = {}, {}, []
     questions = item.all_questions() if isinstance(item, LongItem) else item.questions
     for q in questions:
-        clip = pexels.find_clip(q.visual_query, "portrait" if portrait else "landscape", exclude | set(used_ids))
+        clip = pexels.find_clip(q.visual_query, "portrait" if portrait else "landscape", exclude | set(used_ids),
+                                subject_required=getattr(item, "format", "") == "zoom_reveal")
         used_ids.append(clip.pexels_id)
         raw = pexels.download(clip, work / "raw" / f"{q.id}{'.mp4' if clip.kind == 'video' else '.jpg'}")
         name = f"{q.id}{'.mp4' if clip.kind == 'video' else '.jpg'}"
@@ -179,7 +190,13 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
     return entry
 
 
+MAX_PRODUCE_ATTEMPTS = 3
+PRODUCE_BUDGET_S = 40 * 60   # stop starting new renders after 40 min so the next tick can publish on time
+
+
 def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, producer=produce_entry) -> int:
+    import time as _time
+    started = _time.monotonic()
     today = now.date()
     intake(repo, today, now)
     queue = repo.queue()
@@ -190,20 +207,26 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
             safe("would_produce", id=entry["id"], kind=entry["kind"])
             done += 1
             continue
-        batch = batches.get(entry["week"]) or batches.setdefault(entry["week"], repo.load_batch(entry["week"]))
+        if _time.monotonic() - started > PRODUCE_BUDGET_S:
+            safe("produce_budget_stop", count=done)
+            break
         try:
-            producer(entry, batch, repo, today)
+            if entry["week"] not in batches:
+                batches[entry["week"]] = repo.load_batch(entry["week"])
+            producer(entry, batches[entry["week"]], repo, today)
             done += 1
             safe("produced", id=entry["id"], kind=entry["kind"])
-        except QuotaExceeded:
+        except ResumeLater:
             safe("quota_stop", id=entry["id"])
             break
         except Exception as e:  # noqa: BLE001 — recorded privately, logged by type only
-            entry["status"] = "failed"
+            entry["produce_attempts"] = entry.get("produce_attempts", 0) + 1
             entry["error"] = f"{type(e).__name__}: {str(e)[:500]}"
-            repo.open_issue(f"Production failed: {entry['id']}", f"`{entry['error']}`\n\nSet the entry's status back to "
-                            "`planned` in `schedule/queue.json` to retry.")
-            safe("produce_failed", id=entry["id"], error_type=type(e).__name__)
+            if entry["produce_attempts"] >= MAX_PRODUCE_ATTEMPTS:
+                entry["status"] = "failed"
+                repo.open_issue(f"Production failed: {entry['id']}", f"`{entry['error']}`\n\nSet the entry's status back to "
+                                "`planned` (and `produce_attempts` to 0) in `schedule/queue.json` to retry.")
+            safe("produce_failed", id=entry["id"], attempts=entry["produce_attempts"], error_type=type(e).__name__)
         repo.save_queue(queue)
         repo.commit_and_push(f"produce: {entry['id']}")
     repo.save_queue(queue)
@@ -212,10 +235,13 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
 
 # ---------------------------------------------------------------- publish + escalate
 def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: bool) -> int:
-    from .publish import media_host, publish_item
+    from .publish import media_host
     queue = repo.queue()
     n = 0
-    for entry in due_items(queue, now)[:MAX_PUBLISH_PER_RUN]:
+    due = due_items(queue, now)
+    fresh = [e for e in due if all(p["status"] == "pending" for p in e["platforms"].values())][:MAX_PUBLISH_PER_RUN]
+    retries = [e for e in due if e not in fresh and not all(p["status"] == "pending" for p in e["platforms"].values())]
+    for entry in fresh + retries:
         if dry_run:
             safe("would_publish", id=entry["id"])
             n += 1
@@ -225,7 +251,8 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
         thumbs = [repo.download_asset(entry["week"], t, dl) for t in entry.get("thumbnails", [])]
         meta = {"title": entry["title"], "description": entry["description"], "first_comment": entry["first_comment"],
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
-        publish_item(entry, meta, video, media_repo, now.date())
+        from . import publish as _pub
+        _pub.publish_item(entry, meta, video, media_repo, now.date())
         if any(p["status"] == "published" for p in entry["platforms"].values()):
             entry.setdefault("published_at", now.isoformat())
         n += 1
@@ -334,10 +361,11 @@ def main(argv=None) -> int:
         elif a.command == "analytics":
             run_analytics(repo, now, a.dry_run)
         elif a.command == "tick":
-            produce(repo, now, a.horizon_hours, a.dry_run)
-            publish(repo, now, media, a.dry_run)
+            publish(repo, now, media, a.dry_run)      # publishing first: a long render never delays a due post
             escalate(repo, now, a.dry_run)
-        if not a.dry_run and a.command != "remind":
+            produce(repo, now, a.horizon_hours, a.dry_run)
+            publish(repo, datetime.now(timezone.utc), media, a.dry_run)
+        if not a.dry_run and a.command not in ("remind", "generate"):
             repo.save_queue(repo.queue())
             repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
     except Exception as e:  # noqa: BLE001 — public logs: type only

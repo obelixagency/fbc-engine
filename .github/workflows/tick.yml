@@ -30,6 +30,12 @@ jobs:
             ~/.npm
             ~/.cache/hyperframes
           key: hf-0.8.170-${{ runner.os }}
+      - name: Keep finished voice lines between ticks (TTS quota stops resume, not restart)
+        uses: actions/cache@v4
+        with:
+          path: work/**/voice
+          key: voice-${{ github.run_id }}
+          restore-keys: voice-
       - run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
       - run: pip install -e .
       - run: npx -y hyperframes@0.8.170 browser ensure

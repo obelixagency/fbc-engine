@@ -63,7 +63,8 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         return res["id"]
 
     def fb():
-        vid = meta.fb_reel(video, caps["social"])
+        # Reels accept short vertical video only; the long episode goes out as a regular Page video.
+        vid = meta.fb_reel(video, caps["social"]) if meta_["is_short"] else meta.fb_video(video, meta_["title"], caps["social"])
         if meta_.get("first_comment"):
             try:
                 meta.fb_comment(vid, meta_["first_comment"])
@@ -85,7 +86,10 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
 
     run("youtube", yt)
     run("facebook", fb)
-    run("instagram", ig)
-    if all(p["status"] == "published" for p in plats.values()):
+    if meta_["is_short"]:
+        run("instagram", ig)
+    else:  # Reels are short-form only; a 10-minute episode is not posted to Instagram
+        plats["instagram"]["status"] = "skipped"
+    if all(p["status"] in ("published", "skipped") for p in plats.values()):
         entry["status"] = "published"
     return entry

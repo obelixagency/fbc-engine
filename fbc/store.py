@@ -117,10 +117,13 @@ class ContentRepo:
         self._git("-c", "user.name=fbc-bot", "-c", "user.email=fbc-bot@users.noreply.github.com", "commit", "-q", "-m", message)
         for _ in range(3):
             try:
-                self._git("pull", "-q", "--rebase", "origin", "main")
+                # -X theirs: when replaying our commit, our version of a conflicting hunk wins, so a
+                # published state is never lost (a lost state would re-upload the same video).
+                self._git("pull", "-q", "--rebase", "-X", "theirs", "origin", "main")
                 self._git("push", "-q", "origin", "HEAD:main")
                 return
             except subprocess.CalledProcessError:
+                subprocess.run(["git", "-C", str(self.path), "rebase", "--abort"], capture_output=True)
                 continue
         raise RuntimeError("could not push to the content repo")
 

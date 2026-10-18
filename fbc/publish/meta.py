@@ -44,6 +44,16 @@ def fb_reel(path: Path, caption: str) -> str:
     return video_id
 
 
+def fb_video(path: Path, title: str, description: str) -> str:
+    """Regular (non-Reel) Page video, used for the long landscape episode."""
+    page_id, token = _page()
+    with open(path, "rb") as f:
+        data = _check(requests.post(f"https://graph-video.facebook.com/v21.0/{page_id}/videos",
+                                    data={"title": title, "description": description, "access_token": token},
+                                    files={"source": f}, timeout=3600))
+    return data["id"]
+
+
 def _ig_wait(creation_id: str, token: str, tries: int = 60, wait_s: float = 5) -> None:
     for _ in range(tries):
         status = _check(requests.get(f"{GRAPH}/{creation_id}", params={"fields": "status_code", "access_token": token}, timeout=30))
