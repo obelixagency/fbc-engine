@@ -92,3 +92,11 @@ def test_generate_failure_opens_private_issue_with_problems(repo, monkeypatch):
         cli.cmd_generate(repo, "2026-W45", dry_run=True, today=NOW.date())
     title, body = repo.issues[0][-3], repo.issues[0][-1]
     assert "2026-W45" in title and "30 words" in body
+
+
+def test_private_youtube_upload_opens_one_issue(repo):
+    entry = {"id": "s_x_00", "platforms": {"youtube": {"status": "published", "note": "private_pending_audit: ..."}}}
+    cli._warn_if_youtube_private(repo, entry)
+    assert "Private" in repo.issues[0][-3]
+    cli._warn_if_youtube_private(repo, {"id": "s_x_01", "platforms": {"youtube": {"status": "published"}}})
+    assert len(repo.issues) == 1

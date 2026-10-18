@@ -241,6 +241,18 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
 
 
 # ---------------------------------------------------------------- publish + escalate
+def _warn_if_youtube_private(repo: ContentRepo, entry: dict) -> None:
+    """YouTube silently locks API uploads to Private for unaudited projects: say so once, loudly."""
+    note = entry.get("platforms", {}).get("youtube", {}).get("note") or ""
+    if note.startswith("private_pending_audit"):
+        repo.open_issue("YouTube uploads are landing as Private",
+                        "YouTube accepted the upload but set it to **Private** (the API project has not passed the "
+                        "YouTube API audit yet). Facebook and Instagram are not affected.\n\n"
+                        "- Make the videos Public by hand in YouTube Studio, and\n"
+                        "- apply for the audit: https://support.google.com/youtube/contact/yt_api_form\n\n"
+                        f"First affected item: `{entry['id']}`")
+
+
 def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: bool) -> int:
     from .publish import media_host
     queue = repo.queue()
@@ -260,6 +272,7 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
         from . import publish as _pub
         _pub.publish_item(entry, meta, video, media_repo, now.date())
+        _warn_if_youtube_private(repo, entry)
         if any(p["status"] == "published" for p in entry["platforms"].values()):
             entry.setdefault("published_at", now.isoformat())
         n += 1
