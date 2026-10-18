@@ -6,7 +6,7 @@ from .gemini import generate_json
 from .models import Question
 
 PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "verify.md").read_text()
-CHUNK = 10
+CHUNK = 25   # fewer grounded calls: the free tier allows only ~20 text requests/day
 
 
 def verify_questions(qs: list[Question], gen=generate_json) -> list[Question]:

@@ -27,25 +27,54 @@ class QuotaExceeded(ResumeLater, GeminiError):
 
 
 RETRIES = 4
+TEXT_MIN_GAP_S = 13.0     # free tier allows 5 text requests/minute per model; stay just under it
+_last_text_call = 0.0
 
 
 def _headers() -> dict:
     return {"Content-Type": "application/json", "x-goog-api-key": env("GEMINI_API_KEY")}
 
 
+def _quota_window(r) -> str | None:
+    """PER_DAY / PER_MINUTE from Google's QuotaFailure details (safe to log), else None."""
+    try:
+        details = r.json().get("error", {}).get("details", [])
+    except (ValueError, AttributeError):
+        return None
+    ids = " ".join(str(v.get("quotaId", "")) for d in details if isinstance(d, dict)
+                   for v in d.get("violations", []) if isinstance(v, dict))
+    if "PerDay" in ids:
+        return "PER_DAY"
+    if "PerMinute" in ids:
+        return "PER_MINUTE"
+    return None
+
+
+def _pace_text() -> None:
+    global _last_text_call
+    gap = time.monotonic() - _last_text_call
+    if _last_text_call and gap < TEXT_MIN_GAP_S:
+        time.sleep(TEXT_MIN_GAP_S - gap)
+    _last_text_call = time.monotonic()
+
+
 def _post(url: str, body: dict, timeout: int = 180) -> dict:
     key = env("GEMINI_API_KEY")
     for attempt in range(RETRIES):
+        if ":generateContent" in url:
+            _pace_text()
         r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
         if r.status_code != 429:
             break
-        if attempt == RETRIES - 1:
-            raise QuotaExceeded("Gemini quota exceeded (429)")
+        window = _quota_window(r)
+        if window == "PER_DAY" or attempt == RETRIES - 1:
+            raise QuotaExceeded("Gemini quota exceeded (429)", http=429, reason=window)
         try:
             wait = float(getattr(r, "headers", {}).get("Retry-After", 0))
         except (TypeError, ValueError):
             wait = 0
-        time.sleep(min(max(wait, 5 * 2 ** attempt), 60))
+        floor = 61 if window == "PER_MINUTE" else 5 * 2 ** attempt
+        time.sleep(min(max(wait, floor), 90))
     if r.status_code >= 400:
         try:
             reason = r.json().get("error", {}).get("status")
