@@ -1,0 +1,60 @@
+name: Tick (produce what's due soon, publish what's due now)
+on:
+  schedule:
+    - cron: "5 * * * *"        # every hour at :05
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no uploads, no renders)"
+        type: boolean
+        default: false
+concurrency:
+  group: tick
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Cache HyperFrames and its browser
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/hyperframes
+          key: hf-0.8.170-${{ runner.os }}
+      - run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+      - run: pip install -e .
+      - run: npx -y hyperframes@0.8.170 browser ensure
+      - name: Check out private content
+        uses: actions/checkout@v4
+        with:
+          repository: obelixagency/fbc-content
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: content
+      - name: Check out public media host
+        uses: actions/checkout@v4
+        with:
+          repository: obelixagency/fbc-media
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: media
+      - name: Tick
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+        run: python -m fbc.cli tick ${{ inputs.dry_run && '--dry-run' || '' }}

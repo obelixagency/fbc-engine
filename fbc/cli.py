@@ -1,0 +1,350 @@
+"""Command line entry points used by the GitHub Actions workflows.
+
+    python -m fbc.cli generate  [--week 2026-W45] [--dry-run]
+    python -m fbc.cli tick      [--dry-run]            # produce what is due within 48 h, publish what is due, escalate
+    python -m fbc.cli produce   [--horizon-hours 48] [--dry-run]
+    python -m fbc.cli publish   [--dry-run]
+    python -m fbc.cli analytics [--dry-run]
+    python -m fbc.cli remind                           # Sunday nudge if this week's batch PR is still open
+    python -m fbc.cli auth-youtube                     # one-time local helper that prints a refresh token
+
+Logs are public (public repo), so this module only prints ids, counts and statuses via log.safe().
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import shutil
+import subprocess
+import sys
+from dataclasses import asdict
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+from . import analytics as an
+from .audio import build_audio_request, make_sfx, synthesize
+from .config import CONTENT_REPO, LIMITS
+from .dedupe import fingerprint
+from .gemini import QuotaExceeded
+from .generate import build_batch
+from .log import safe
+from .models import Batch, BatchError, LongItem
+from .schedule import due_items, late_items, next_week, to_produce
+from .store import ContentRepo, plan_queue
+from .weights import default_weights
+
+WORK = Path("work")
+MAX_PUBLISH_PER_RUN = 2
+
+
+# ---------------------------------------------------------------- generate
+def pr_body(batch: Batch) -> str:
+    def row(q, item_id, fmt):
+        flags = " ".join(q.flags) or ("✅" if q.verified else "")
+        src = f"[source]({q.source_url})" if q.source_url else ""
+        opts = " / ".join(q.options) if q.options else "—"
+        return f"| {item_id} | {fmt} | {q.question} | {opts} | **{q.answer or '—'}** | {flags} | {src} |"
+    head = "| item | format | question | options | answer | check | source |\n|---|---|---|---|---|---|---|"
+    lines = [f"## Family Brain Clash — batch {batch.week}",
+             "Review the questions below. **Edit `batch.json` in this PR to fix anything, then Merge to approve.** "
+             "Nothing is published until this PR is merged.", "",
+             "Rows marked ⚠️ could not be verified automatically — fix or delete them.", "", "### Shorts", head]
+    for s in batch.shorts:
+        for q in s.questions:
+            lines.append(row(q, s.id, s.format))
+    lines += ["", "**Titles** (change `chosen_title_index` to pick another):"]
+    for s in batch.shorts:
+        lines.append(f"- {s.id}: " + " · ".join(f"[{i}] {t}" for i, t in enumerate(s.titles)))
+    lines += ["", f"### Long video — Family Quiz Night #{batch.long.episode}", head]
+    for r in batch.long.rounds:
+        for q in r["questions"]:
+            lines.append(row(q, r["name"], "long"))
+    lines.append(row(batch.long.bonus, "Bonus", "long"))
+    lines += ["", "Titles: " + " · ".join(f"[{i}] {t}" for i, t in enumerate(batch.long.titles)), "",
+              "### Last week's performance", batch.report_md or "_First week: no data yet._"]
+    return "\n".join(lines)
+
+
+def cmd_generate(repo: ContentRepo, week: str, dry_run: bool, today: date, gen=None) -> Batch:
+    weights = repo.weights(default_weights())
+    used = repo.used()
+    episode = len(repo.merged_weeks()) + 1
+    report = (repo.path / "analytics" / "last_report.md").read_text() if (repo.path / "analytics" / "last_report.md").exists() else ""
+    kw = {"gen": gen} if gen else {}
+    batch = build_batch(week, weights, used, episode, random.Random(week), today=today, report_md=report, **kw)
+    body = pr_body(batch)
+    if dry_run:
+        out = WORK / "dry"; out.mkdir(parents=True, exist_ok=True)
+        (out / "batch.json").write_text(batch.to_json()); (out / "pr.md").write_text(body)
+    else:
+        repo.open_batch_pr(week, batch.to_json(), body)
+    safe("generated", week=week, count=len(batch.shorts))
+    return batch
+
+
+# ---------------------------------------------------------------- queue intake
+def _item_meta(batch: Batch, item) -> dict:
+    if isinstance(item, LongItem):
+        return {"format": "long", "category": "mixed", "hook_id": "", "title": item.title,
+                "description": item.description, "first_comment": item.first_comment}
+    return {"format": item.format, "category": item.questions[0].category, "hook_id": item.hook_id,
+            "title": item.title, "description": item.description, "first_comment": item.first_comment}
+
+
+def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
+    """Queue every merged batch that is not queued yet. A broken batch opens an Issue instead."""
+    queue = repo.queue()
+    queued = {e["week"] for e in queue}
+    added = 0
+    for week in repo.merged_weeks():
+        if week in queued:
+            continue
+        try:
+            batch = repo.load_batch(week)
+        except BatchError as e:
+            repo.open_issue(f"Batch {week} cannot be produced",
+                            "The merged `batch.json` has problems. Fix them in `fbc-content` and the next run picks it up:\n\n"
+                            + "\n".join(f"- {p}" for p in e.problems))
+            safe("batch_invalid", week=week, count=len(e.problems))
+            continue
+        items = {s.id: s for s in batch.shorts} | {batch.long.id: batch.long}
+        now = datetime.now(timezone.utc) if now_ is None else now_
+        for entry in plan_queue(batch):
+            entry.update(_item_meta(batch, items[entry["id"]]))
+            if datetime.fromisoformat(entry["slot_utc"]) < now:
+                entry["status"] = "skipped"   # batch merged after this slot: never dump late videos at once
+            queue.append(entry)
+            added += 1
+        repo.append_used([{"question": q.question, "answer": q.answer, "fingerprint": fingerprint(q.question, q.answer),
+                           "date": today.isoformat(), "week": week} for q in batch.all_questions()])
+    if added:
+        repo.save_queue(queue)
+    return added
+
+
+# ---------------------------------------------------------------- produce
+def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> dict:
+    """Voice, visuals, render, QA, upload as a private release asset. Raises on failure."""
+    from . import pexels, qa, render, timeline
+    item = batch.long if entry["kind"] == "long" else next(s for s in batch.shorts if s.id == entry["id"])
+    work = WORK / entry["id"]
+    voice_dir = work / "voice"
+    req = build_audio_request(item)
+    durations = synthesize(req, voice_dir)
+    make_sfx(work / "sfx")
+    portrait = entry["kind"] == "short"
+    w, h = (1080, 1920) if portrait else (1920, 1080)
+    exclude = repo.recent_clip_ids(LIMITS["clip_reuse_days"], today)
+    clips, assets, used_ids = {}, {}, []
+    questions = item.all_questions() if isinstance(item, LongItem) else item.questions
+    for q in questions:
+        clip = pexels.find_clip(q.visual_query, "portrait" if portrait else "landscape", exclude | set(used_ids))
+        used_ids.append(clip.pexels_id)
+        raw = pexels.download(clip, work / "raw" / f"{q.id}{'.mp4' if clip.kind == 'video' else '.jpg'}")
+        name = f"{q.id}{'.mp4' if clip.kind == 'video' else '.jpg'}"
+        render.prepare_clip(raw, work / "clips" / name, w, h, 20.0, clip.kind)
+        clips[q.id] = {"name": name, "kind": clip.kind, "portrait": portrait}
+        assets[name] = work / "clips" / name
+    tl = (timeline.build_long_timeline(item, durations, clips) if isinstance(item, LongItem)
+          else timeline.build_short_timeline(item, durations, clips))
+    for seg in tl.segments:
+        for name, _ in seg.audio:
+            assets[name] = voice_dir / name
+    for name in ("tick.wav", "ding.wav", "whoosh.wav"):
+        assets[name] = work / "sfx" / name
+    project = render.write_project(tl, durations, assets, work / "project", entry["kind"])
+    out = work / f"{entry['id']}.mp4"
+    render.render_mp4(project, out)
+    problems = qa.check_video(out, entry["kind"], json.loads((project / "qa.json").read_text()))
+    if problems:
+        raise RuntimeError("QA failed: " + "; ".join(problems))
+    entry["asset"] = repo.upload_asset(entry["week"], out)
+    entry["duration"] = tl.duration
+    entry["chapters"] = tl.chapters
+    if isinstance(item, LongItem):
+        frames = []
+        for k, q in enumerate(questions[::10][:3]):
+            src = work / "clips" / clips[q.id]["name"]
+            img = work / f"thumbsrc{k}.jpg"
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", str(src), "-frames:v", "1", str(img)]
+                           if src.suffix == ".mp4" else ["cp", str(src), str(img)], check=True)
+            frames.append(img)
+        heads = [t.split(":")[-1].strip() for t in item.titles][:3]
+        thumbs = render.render_thumbnails(heads, frames, item.episode, work / "thumbs")
+        entry["thumbnails"] = [repo.upload_asset(entry["week"], p) for p in thumbs]
+    repo.add_clip_ids(used_ids, today)
+    entry["status"] = "produced"
+    shutil.rmtree(work / "raw", ignore_errors=True)
+    return entry
+
+
+def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, producer=produce_entry) -> int:
+    today = now.date()
+    intake(repo, today, now)
+    queue = repo.queue()
+    batches: dict[str, Batch] = {}
+    done = 0
+    for entry in to_produce(queue, now, horizon_h):
+        if dry_run:
+            safe("would_produce", id=entry["id"], kind=entry["kind"])
+            done += 1
+            continue
+        batch = batches.get(entry["week"]) or batches.setdefault(entry["week"], repo.load_batch(entry["week"]))
+        try:
+            producer(entry, batch, repo, today)
+            done += 1
+            safe("produced", id=entry["id"], kind=entry["kind"])
+        except QuotaExceeded:
+            safe("quota_stop", id=entry["id"])
+            break
+        except Exception as e:  # noqa: BLE001 — recorded privately, logged by type only
+            entry["status"] = "failed"
+            entry["error"] = f"{type(e).__name__}: {str(e)[:500]}"
+            repo.open_issue(f"Production failed: {entry['id']}", f"`{entry['error']}`\n\nSet the entry's status back to "
+                            "`planned` in `schedule/queue.json` to retry.")
+            safe("produce_failed", id=entry["id"], error_type=type(e).__name__)
+        repo.save_queue(queue)
+        repo.commit_and_push(f"produce: {entry['id']}")
+    repo.save_queue(queue)
+    return done
+
+
+# ---------------------------------------------------------------- publish + escalate
+def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: bool) -> int:
+    from .publish import media_host, publish_item
+    queue = repo.queue()
+    n = 0
+    for entry in due_items(queue, now)[:MAX_PUBLISH_PER_RUN]:
+        if dry_run:
+            safe("would_publish", id=entry["id"])
+            n += 1
+            continue
+        dl = WORK / "dl" / entry["id"]
+        video = repo.download_asset(entry["week"], entry["asset"], dl)
+        thumbs = [repo.download_asset(entry["week"], t, dl) for t in entry.get("thumbnails", [])]
+        meta = {"title": entry["title"], "description": entry["description"], "first_comment": entry["first_comment"],
+                "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
+        publish_item(entry, meta, video, media_repo, now.date())
+        if any(p["status"] == "published" for p in entry["platforms"].values()):
+            entry.setdefault("published_at", now.isoformat())
+        n += 1
+        repo.save_queue(queue)
+        repo.commit_and_push(f"publish: {entry['id']}")
+    if media_repo and not dry_run:
+        media_host.prune_public(media_repo, now.date())
+    return n
+
+
+def escalate(repo: ContentRepo, now: datetime, dry_run: bool) -> int:
+    late = late_items(repo.queue(), now)
+    for e in late:
+        if dry_run:
+            safe("late", id=e["id"])
+            continue
+        errors = "\n".join(f"- {k}: {v.get('status')} {v.get('error') or ''}" for k, v in e["platforms"].items())
+        repo.open_issue(f"Late: {e['id']}", f"Slot {e['slot_utc']} passed more than 2.5 h ago.\n\nStatus: `{e['status']}`\n"
+                        f"{e.get('error', '')}\n\n{errors}")
+    return len(late)
+
+
+# ---------------------------------------------------------------- analytics
+def run_analytics(repo: ContentRepo, now: datetime, dry_run: bool) -> int:
+    queue = repo.queue()
+    rows = an.collect_stats(queue, now)
+    if not rows:
+        return 0
+    before = repo.weights(default_weights())
+    after = an.apply(before, rows)
+    if dry_run:
+        return len(rows)
+    repo.save_weights(after)
+    repo.append_scores([{**r, "date": now.date().isoformat()} for r in rows])
+    (repo.path / "analytics").mkdir(exist_ok=True)
+    (repo.path / "analytics" / "last_report.md").write_text(an.report_md(rows, before, after))
+    repo.save_queue(queue)
+    repo.commit_and_push("analytics: weights update")
+    return len(rows)
+
+
+def remind(repo: ContentRepo, week: str) -> None:
+    out = repo.run_gh("pr", "list", "-R", repo.gh_repo, "--head", f"batch/{week}", "--state", "open", "--json", "number")
+    for pr in json.loads(out or "[]"):
+        repo.run_gh("pr", "comment", str(pr["number"]), "-R", repo.gh_repo, "--body",
+                    "⏰ Reminder: this week's batch is still waiting for review. Nothing new will publish until it is merged.")
+
+
+# ---------------------------------------------------------------- auth helper (local, one time)
+def auth_youtube() -> None:
+    import http.server
+    import urllib.parse
+    import webbrowser
+    import requests
+    from .config import env
+    cid, secret = env("YT_CLIENT_ID"), env("YT_CLIENT_SECRET")
+    redirect = "http://localhost:8765"
+    scopes = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl",
+              "https://www.googleapis.com/auth/yt-analytics.readonly"]
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
+        "client_id": cid, "redirect_uri": redirect, "response_type": "code", "scope": " ".join(scopes),
+        "access_type": "offline", "prompt": "consent"})
+    code = {}
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            code.update(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query))
+            self.send_response(200); self.end_headers()
+            self.wfile.write(b"Done. You can close this tab and go back to the terminal.")
+
+        def log_message(self, *a):
+            pass
+    print("Open this URL, sign in with the Family Brain Clash channel account and allow access:\n" + url)
+    webbrowser.open(url)
+    http.server.HTTPServer(("localhost", 8765), H).handle_request()
+    r = requests.post("https://oauth2.googleapis.com/token", data={"code": code["code"][0], "client_id": cid,
+                      "client_secret": secret, "redirect_uri": redirect, "grant_type": "authorization_code"}).json()
+    print("\nYT_REFRESH_TOKEN (paste it into GitHub Secrets, then delete it from here):\n" + r["refresh_token"])
+
+
+# ---------------------------------------------------------------- main
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="fbc")
+    ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube"])
+    ap.add_argument("--week")
+    ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
+    ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
+    ap.add_argument("--horizon-hours", type=float, default=48)
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args(argv)
+    if a.command == "auth-youtube":
+        auth_youtube()
+        return 0
+    now = datetime.now(timezone.utc)
+    repo = ContentRepo(Path(a.content), CONTENT_REPO)
+    media = Path(a.media) if Path(a.media).exists() else None
+    try:
+        if a.command == "generate":
+            cmd_generate(repo, a.week or next_week(now.date()), a.dry_run, now.date())
+        elif a.command == "remind":
+            remind(repo, a.week or next_week(now.date()))
+        elif a.command == "produce":
+            produce(repo, now, a.horizon_hours, a.dry_run)
+        elif a.command == "publish":
+            publish(repo, now, media, a.dry_run)
+        elif a.command == "analytics":
+            run_analytics(repo, now, a.dry_run)
+        elif a.command == "tick":
+            produce(repo, now, a.horizon_hours, a.dry_run)
+            publish(repo, now, media, a.dry_run)
+            escalate(repo, now, a.dry_run)
+        if not a.dry_run and a.command != "remind":
+            repo.save_queue(repo.queue())
+            repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
+    except Exception as e:  # noqa: BLE001 — public logs: type only
+        safe("failed", status=a.command, error_type=type(e).__name__)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
