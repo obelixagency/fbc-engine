@@ -6,7 +6,7 @@ BRAND = {
     "navy": "#16133F", "yellow": "#FFD23F", "pink": "#FF3E7F",
     "green": "#2EE59D", "white": "#FFFFFF",
 }
-OVERLAY = "rgba(22,19,63,0.45)"
+OVERLAY = "rgba(22,19,63,0.5)"
 
 SHORT_SLOTS_ET = ["07:00", "16:00"]
 LONG_SLOT_ET = ("SAT", "10:00")

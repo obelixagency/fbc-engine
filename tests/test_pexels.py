@@ -58,6 +58,19 @@ def test_falls_back_to_landscape(monkeypatch):
     assert c.kind == "video" and c.pexels_id == 5 and c.width > c.height
 
 
+def test_falls_back_to_generic_quiz_video_before_photo(monkeypatch):
+    calls = []
+
+    def get(url, headers=None, params=None, timeout=None):
+        calls.append(params.get("query"))
+        if "videos" in url and params["query"] in pexels.GENERIC_QUERIES:
+            return R({"videos": [vid(77, 1080, 1920)]})
+        return R({"videos": [], "photos": [{"id": 9, "width": 4000, "height": 6000, "src": {"original": "x"}}]})
+    monkeypatch.setattr(pexels.requests, "get", get)
+    c = pexels.find_clip("very rare subject", "portrait", set())
+    assert c.kind == "video" and c.pexels_id == 77
+
+
 def test_falls_back_to_photo(monkeypatch):
     route(monkeypatch, {}, photos=[{"id": 9, "width": 4000, "height": 6000, "src": {"original": "https://p/9.jpg", "large2x": "https://p/9l.jpg"}}])
     c = pexels.find_clip("horse", "portrait", set())

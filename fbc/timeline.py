@@ -37,6 +37,9 @@ class Timeline:
                 for s in self.segments if s.data.get("countdown")]
 
 
+OUTRO_TEXT = {"three_q": "Comment your score! 👇", "zoom_reveal": "Did you guess it? 👇",
+              "riddle": "Did you solve it? 👇", "parents_vs_kids": "Who won at your house? 👇",
+              "true_false": "Comment your score! 👇", "would_you_rather": "A or B? Vote below! 👇"}
 SHORT_MAX = 35.0
 MIN_SHORT = {"three_q": 22.0, "parents_vs_kids": 22.0, "true_false": 22.0,
              "zoom_reveal": 12.0, "riddle": 12.0, "would_you_rather": 12.0}
@@ -86,7 +89,8 @@ def _short_layout(item: ShortItem, d: dict, clips: dict, countdown: float, revea
         segs.append(seg)
         t = seg.end
     outro_len = min(d["outro"] + 0.3, OUTRO_MAX) + outro_extra
-    segs.append(Segment("outro", t, t + outro_len, data={"text": item.title}, audio=[("outro.wav", t)],
+    segs.append(Segment("outro", t, t + outro_len, data={"outro_text": OUTRO_TEXT[item.format], "hook": item.hook},
+                        audio=[("outro.wav", t)],
                         clip=first_clip))
     return segs, t + outro_len
 

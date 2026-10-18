@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width={{ W }}, height={{ H }}" />
+<title>Family Brain Clash</title>
+<script src="assets/gsap.min.js"></script>
+<style>
+@font-face { font-family: "Archivo Black"; src: url("assets/fonts/ArchivoBlack-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Archivo"; src: url("assets/fonts/Archivo-400.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "Archivo"; src: url("assets/fonts/Archivo-600.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Archivo"; src: url("assets/fonts/Archivo-700.woff2") format("woff2"); font-weight: 700; }
+:root { --navy: #16133F; --yellow: #FFD23F; --pink: #FF3E7F; --green: #2EE59D; --white: #FFFFFF; --u: {{ U }}px; }
+body { margin: 0; background: var(--navy); color: var(--white); font-family: "Archivo", sans-serif; }
+#root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--navy); }
+.bgwrap { position: absolute; overflow: hidden; }
+.bgwrap.full { inset: 0; }
+.bgwrap.panel { left: calc(var(--u) * 4); top: calc(var(--u) * 13); width: calc(var(--u) * 43); height: calc(var(--u) * 32); border-radius: calc(var(--u) * 1.6); border: calc(var(--u) * 0.35) solid var(--white); box-sizing: border-box; }
+.bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+#overlay { position: absolute; inset: 0; background: rgba(22, 19, 63, {{ OVERLAY }}); pointer-events: none; }
+#flash { position: absolute; inset: 0; background: var(--green); opacity: 0; pointer-events: none; }
+#progress-track { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u) * 0.6); background: rgba(255,255,255,0.18); }
+#progress { position: absolute; inset: 0; background: var(--yellow); transform-origin: 0 50%; }
+#brand { position: absolute; left: 0; right: 0; top: calc(var(--u) * {{ BRAND_TOP }}); text-align: center; font-weight: 700; letter-spacing: 0.3em; font-size: calc(var(--u) * 1.5); color: var(--yellow); }
+.scene { position: absolute; inset: 0; }
+.stage { position: absolute; left: calc(var(--u) * {{ STAGE_L }}); right: calc(var(--u) * {{ STAGE_R }}); top: calc(var(--u) * {{ STAGE_T }}); bottom: calc(var(--u) * {{ STAGE_B }}); display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: calc(var(--u) * 1.8); }
+.pill { align-self: center; background: var(--pink); color: var(--white); font-weight: 700; font-size: calc(var(--u) * 1.9); padding: calc(var(--u) * 0.5) calc(var(--u) * 1.6); border-radius: 999px; letter-spacing: 0.06em; }
+.question { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ Q_SIZE }}); line-height: 1.12; text-align: center; color: var(--white); text-shadow: 0 calc(var(--u) * 0.3) calc(var(--u) * 1.2) rgba(0,0,0,0.45); }
+.opts { display: flex; flex-direction: column; gap: calc(var(--u) * 1.1); }
+.opts.row { flex-direction: row; }
+.opts.row .opt { flex: 1; justify-content: center; }
+.opt { display: flex; align-items: center; gap: calc(var(--u) * 1.2); background: var(--white); color: var(--navy); border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.6); font-weight: 700; font-size: calc(var(--u) * {{ OPT_SIZE }}); }
+.opt b { color: var(--pink); font-family: "Archivo Black", sans-serif; }
+.cd { align-self: center; flex-shrink: 0; position: relative; width: calc(var(--u) * 8); height: calc(var(--u) * 8); border-radius: 50%; border: calc(var(--u) * 0.7) solid var(--yellow); box-sizing: border-box; }
+.cd span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * 4.2); color: var(--yellow); opacity: 0; }
+.reveal { align-self: center; flex-shrink: 0; text-align: center; background: var(--green); color: #0B3D2A; border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.8); max-width: 100%; opacity: 0; }
+.reveal .ans { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ OPT_SIZE }}); }
+.reveal .fact { font-weight: 600; font-size: calc(var(--u) * 2.2); margin-top: calc(var(--u) * 0.4); }
+.big { font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * {{ BIG_SIZE }}); line-height: 1.05; text-align: center; color: var(--yellow); text-shadow: 0 calc(var(--u) * 0.3) calc(var(--u) * 1.2) rgba(0,0,0,0.5); }
+.sub { font-weight: 700; font-size: calc(var(--u) * 3); text-align: center; color: var(--white); }
+.tiers { display: flex; flex-direction: column; gap: calc(var(--u) * 1); }
+.tier { display: flex; justify-content: space-between; background: var(--white); color: var(--navy); border-radius: calc(var(--u) * 1.2); padding: calc(var(--u) * 1) calc(var(--u) * 1.6); font-weight: 700; font-size: calc(var(--u) * 3); }
+.tier b { font-family: "Archivo Black", sans-serif; color: var(--pink); }
+.vs { align-self: center; font-family: "Archivo Black", sans-serif; font-size: calc(var(--u) * 3.4); color: var(--yellow); }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="{{ W }}" data-height="{{ H }}" data-duration="{{ DURATION }}" data-fps="30">
+{% for bg in backgrounds %}
+  <div class="bgwrap {{ bg.mode }}" id="bgw{{ loop.index0 }}">
+  {% if bg.kind == "video" %}
+    <video id="bgv{{ loop.index0 }}" class="clip bg" src="assets/{{ bg.name }}" muted playsinline data-start="{{ bg.start }}" data-duration="{{ bg.duration }}" data-track-index="0"></video>
+  {% else %}
+    <img id="bgi{{ loop.index0 }}" class="clip bg" src="assets/{{ bg.name }}" alt="" data-start="{{ bg.start }}" data-duration="{{ bg.duration }}" data-track-index="0" />
+  {% endif %}
+  </div>
+{% endfor %}
+  <div id="overlay"></div>
+  <div id="flash"></div>
+{% for s in scenes %}
+  <section class="clip scene" id="sc{{ s.idx }}" data-start="{{ s.start }}" data-duration="{{ s.duration }}" data-track-index="1">
+    <div class="stage">
+    {% if s.kind == "hook" %}
+      <div class="big" id="sc{{ s.idx }}-big">{{ s.data.text }}</div>
+    {% elif s.kind in ("mcq", "tf", "riddle", "zoom", "wyr") %}
+      {% if s.data.label %}<div class="pill" id="sc{{ s.idx }}-pill">{{ s.data.label }}</div>
+      {% elif s.data.total > 1 %}<div class="pill" id="sc{{ s.idx }}-pill">{{ s.data.n }} / {{ s.data.total }}</div>{% endif %}
+      <div class="question" id="sc{{ s.idx }}-q">{{ s.data.question }}</div>
+      {% if s.kind == "wyr" %}
+      <div class="opts" id="sc{{ s.idx }}-opts">
+        <div class="opt" id="sc{{ s.idx }}-o0"><b>A</b>{{ s.data.options[0] }}</div>
+        <div class="vs" id="sc{{ s.idx }}-vs">OR</div>
+        <div class="opt" id="sc{{ s.idx }}-o1"><b>B</b>{{ s.data.options[1] }}</div>
+      </div>
+      <div class="sub" id="sc{{ s.idx }}-vote">Comment A or B 👇</div>
+      {% elif s.data.options %}
+      <div class="opts{% if s.kind == 'tf' %} row{% endif %}" id="sc{{ s.idx }}-opts">
+        {% for o in s.data.options %}<div class="opt" id="sc{{ s.idx }}-o{{ loop.index0 }}">{% if s.kind != 'tf' %}<b>{{ "ABC"[loop.index0] }}</b>{% endif %}{{ o }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      {% if s.kind != "wyr" %}
+      <div class="cd" id="sc{{ s.idx }}-cd">{% for k in s.countdown_numbers %}<span id="sc{{ s.idx }}-cd{{ loop.index0 }}">{{ k }}</span>{% endfor %}</div>
+      <div class="reveal" id="sc{{ s.idx }}-rv"><div class="ans">{{ s.reveal_text }}</div>{% if s.data.fun_fact and s.kind != "tf" %}<div class="fact">{{ s.data.fun_fact }}</div>{% endif %}</div>
+      {% endif %}
+    {% elif s.kind == "outro" %}
+      <div class="big" id="sc{{ s.idx }}-big">{{ s.outro_text }}</div>
+      <div class="sub" id="sc{{ s.idx }}-sub">Follow for a new quiz every day!</div>
+    </div>
+    <div class="stage" id="sc{{ s.idx }}-loop" style="opacity: 0">
+      <div class="big">{{ s.data.hook }}</div>
+    {% elif s.kind == "intro" %}
+      <div class="pill" id="sc{{ s.idx }}-pill">FAMILY QUIZ NIGHT #{{ s.data.episode }}</div>
+      <div class="big" id="sc{{ s.idx }}-big">Grab a pen! Everyone keeps score.</div>
+      <div class="sub" id="sc{{ s.idx }}-sub">5 rounds · 30 questions · 1 bonus</div>
+    {% elif s.kind == "round_title" %}
+      <div class="pill" id="sc{{ s.idx }}-pill">ROUND {{ s.data.round }}</div>
+      <div class="big" id="sc{{ s.idx }}-big">{{ s.data.name }}</div>
+    {% elif s.kind == "score" %}
+      <div class="big" id="sc{{ s.idx }}-big">How many did you get?</div>
+      <div class="sub" id="sc{{ s.idx }}-sub">Write down your round {{ s.data.round }} score</div>
+    {% elif s.kind == "tiers" %}
+      <div class="big" id="sc{{ s.idx }}-big">Add up your points!</div>
+      <div class="tiers" id="sc{{ s.idx }}-tiers">{% for name, lo, hi in s.data.tiers %}<div class="tier"><span>{{ lo }}–{{ hi }}</span><b>{{ name }}</b></div>{% endfor %}</div>
+    {% elif s.kind == "end" %}
+      <div class="big" id="sc{{ s.idx }}-big">Who's the family champion?</div>
+      <div class="sub" id="sc{{ s.idx }}-sub">Comment your scores · New quiz night every Saturday</div>
+    {% endif %}
+    </div>
+  </section>
+{% endfor %}
+  <div id="progress-track"><div id="progress"></div></div>
+  <div id="brand">FAMILY BRAIN CLASH</div>
+{% for a in audios %}
+  <audio id="au{{ loop.index0 }}" src="assets/{{ a.name }}" data-start="{{ a.start }}" data-duration="{{ a.duration }}" data-track-index="{{ a.track }}" data-volume="{{ a.volume }}"></audio>
+{% endfor %}
+</div>
+<script>
+const ACTIONS = {{ actions_json|safe }};
+const tl = gsap.timeline({ paused: true });
+for (const a of ACTIONS) {
+  if (a.m === "set") tl.set(a.sel, a.to, a.t);
+  else if (a.m === "fromTo") tl.fromTo(a.sel, a.from, a.to, a.t);
+  else tl.to(a.sel, a.to, a.t);
+}
+window.__timelines["main"] = tl;
+</script>
+</body>
+</html>

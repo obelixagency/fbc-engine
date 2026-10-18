@@ -49,10 +49,21 @@ def _videos(query: str, orientation: str, exclude: set[int]) -> Clip | None:
     return None
 
 
+# Quiz-friendly moving backgrounds used when the subject itself has no usable video,
+# so every Short keeps a moving video background (photos are a last resort only).
+GENERIC_QUERIES = ["colorful bokeh lights", "abstract colorful particles", "neon light background",
+                   "colorful smoke slow motion", "confetti falling", "colorful paint swirl"]
+
+
 def find_clip(query: str, orientation: str, exclude_ids: set[int]) -> Clip:
     other = "landscape" if orientation == "portrait" else "portrait"
     for o in (orientation, other):
         clip = _videos(query, o, exclude_ids)
+        if clip:
+            return clip
+    start = sum(map(ord, query)) % len(GENERIC_QUERIES)  # stable but varied per question
+    for k in range(len(GENERIC_QUERIES)):
+        clip = _videos(GENERIC_QUERIES[(start + k) % len(GENERIC_QUERIES)], orientation, exclude_ids)
         if clip:
             return clip
     data = _get("/v1/search", {"query": query, "orientation": orientation, "per_page": 15})
