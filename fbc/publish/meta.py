@@ -8,7 +8,7 @@ import requests
 
 from ..config import env
 
-GRAPH = "https://graph.facebook.com/v21.0"
+GRAPH = "https://graph.facebook.com/v26.0"
 
 
 class MetaError(RuntimeError):
@@ -48,7 +48,7 @@ def fb_video(path: Path, title: str, description: str) -> str:
     """Regular (non-Reel) Page video, used for the long landscape episode."""
     page_id, token = _page()
     with open(path, "rb") as f:
-        data = _check(requests.post(f"https://graph-video.facebook.com/v21.0/{page_id}/videos",
+        data = _check(requests.post(f"https://graph-video.facebook.com/v26.0/{page_id}/videos",
                                     data={"title": title, "description": description, "access_token": token},
                                     files={"source": f}, timeout=3600))
     return data["id"]

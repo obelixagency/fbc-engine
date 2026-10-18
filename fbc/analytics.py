@@ -10,7 +10,7 @@ from .config import env
 from .weights import score_video, update_weights
 
 YT_ANALYTICS = "https://youtubeanalytics.googleapis.com/v2/reports"
-GRAPH = "https://graph.facebook.com/v21.0"
+GRAPH = "https://graph.facebook.com/v26.0"
 MIN_AGE = timedelta(hours=72)
 
 
