@@ -303,12 +303,18 @@ def remind(repo: ContentRepo, week: str) -> None:
 
 # ---------------------------------------------------------------- auth helper (local, one time)
 def auth_youtube() -> None:
+    """One-time local helper. Asks for the OAuth client id/secret (hidden input), runs Google sign-in in the
+    browser and puts the refresh token on the clipboard (macOS pbcopy) instead of printing it."""
+    import getpass
     import http.server
+    import os
+    import shutil as _sh
+    import subprocess as _sp
     import urllib.parse
     import webbrowser
     import requests
-    from .config import env
-    cid, secret = env("YT_CLIENT_ID"), env("YT_CLIENT_SECRET")
+    cid = os.environ.get("YT_CLIENT_ID") or input("Paste the YouTube OAuth Client ID, then Enter: ").strip()
+    secret = os.environ.get("YT_CLIENT_SECRET") or getpass.getpass("Paste the Client secret (hidden), then Enter: ").strip()
     redirect = "http://localhost:8765"
     scopes = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl",
               "https://www.googleapis.com/auth/yt-analytics.readonly"]
@@ -321,16 +327,27 @@ def auth_youtube() -> None:
         def do_GET(self):
             code.update(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query))
             self.send_response(200); self.end_headers()
-            self.wfile.write(b"Done. You can close this tab and go back to the terminal.")
+            self.wfile.write(b"Done. Go back to the terminal.")
 
         def log_message(self, *a):
             pass
-    print("Open this URL, sign in with the Family Brain Clash channel account and allow access:\n" + url)
+    print("Opening Google sign-in in your browser. Sign in with the Family Brain Clash channel account.")
     webbrowser.open(url)
     http.server.HTTPServer(("localhost", 8765), H).handle_request()
+    if "code" not in code:
+        print("Sign-in was cancelled:", code.get("error"))
+        return
     r = requests.post("https://oauth2.googleapis.com/token", data={"code": code["code"][0], "client_id": cid,
                       "client_secret": secret, "redirect_uri": redirect, "grant_type": "authorization_code"}).json()
-    print("\nYT_REFRESH_TOKEN (paste it into GitHub Secrets, then delete it from here):\n" + r["refresh_token"])
+    token = r.get("refresh_token")
+    if not token:
+        print("No refresh token returned:", r.get("error"), r.get("error_description"))
+        return
+    if _sh.which("pbcopy"):
+        _sp.run(["pbcopy"], input=token.encode(), check=True)
+        print("\nOK: the refresh token is now on your clipboard. Paste it into the YT_REFRESH_TOKEN secret on GitHub.")
+    else:
+        print("\nYT_REFRESH_TOKEN (paste it into GitHub Secrets, then clear this screen):\n" + token)
 
 
 # ---------------------------------------------------------------- main
