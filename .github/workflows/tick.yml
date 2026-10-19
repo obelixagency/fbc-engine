@@ -1,7 +1,9 @@
 name: Tick (produce what's due soon, publish what's due now)
 on:
   schedule:
-    - cron: "5 * * * *"        # every hour at :05
+    # GitHub drops many scheduled runs (we saw only 3 of 9 hourly runs fire). Running every 20 min at odd
+    # minutes (away from the busy top of the hour) means a missed run is covered within minutes.
+    - cron: "13,33,53 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
