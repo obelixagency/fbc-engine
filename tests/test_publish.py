@@ -107,3 +107,46 @@ def test_private_upload_is_noted(monkeypatch, tmp_path):
     monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
     e = publish.publish_item(entry(), META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
     assert "private_pending_audit" in e["platforms"]["youtube"]["note"]
+
+
+LONG_META = {"title": "Family Quiz Night #1: Can You Beat Your Family?", "description": "Family trivia night.",
+             "first_comment": "Your score?", "is_short": False, "chapters": ["0:00 Intro"], "thumbnails": []}
+
+
+def _long_mocks(monkeypatch, sent, yt_ok=True):
+    monkeypatch.setattr(youtube, "access_token", lambda: "t")
+
+    def up(*a, **k):
+        if not yt_ok:
+            raise youtube.YouTubeError("quota")
+        return {"id": "LONG1", "privacy": "public"}
+    monkeypatch.setattr(youtube, "upload_video", up)
+    monkeypatch.setattr(youtube, "add_comment", lambda *a, **k: "c")
+    monkeypatch.setattr(meta, "fb_reel", lambda path, cap: sent.append(("fb", path.name, cap)) or "fb1")
+    monkeypatch.setattr(meta, "fb_video", lambda *a: sent.append(("fb_full",)) or "fbv")
+    monkeypatch.setattr(meta, "fb_comment", lambda vid, text: sent.append(("fbc", text)) or "c")
+    monkeypatch.setattr(publish.media_host, "push_public", lambda repo, path, today: sent.append(("pub", path.name)) or "https://pub/t.mp4")
+    monkeypatch.setattr(meta, "ig_reel", lambda url, cap: sent.append(("ig", cap)) or "ig1")
+    monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
+
+
+def test_long_video_goes_to_youtube_and_a_teaser_reel_with_the_link_to_fb_and_ig(monkeypatch, tmp_path):
+    sent = []
+    _long_mocks(monkeypatch, sent)
+    m = dict(LONG_META, teaser=tmp_path / "teaser.mp4")
+    e = publish.publish_item(entry(), m, tmp_path / "long.mp4", tmp_path, date(2026, 10, 24))
+    assert ("fb_full",) not in sent
+    fb = next(s for s in sent if s[0] == "fb")
+    assert fb[1] == "teaser.mp4" and "https://youtu.be/LONG1" in fb[2]
+    assert ("pub", "teaser.mp4") in sent
+    assert "https://youtu.be/LONG1" in next(s for s in sent if s[0] == "ig")[1]
+    assert e["status"] == "published" and e["platforms"]["instagram"]["status"] == "published"
+
+
+def test_teaser_waits_for_the_youtube_link(monkeypatch, tmp_path):
+    sent = []
+    _long_mocks(monkeypatch, sent, yt_ok=False)
+    m = dict(LONG_META, teaser=tmp_path / "teaser.mp4")
+    e = publish.publish_item(entry(), m, tmp_path / "long.mp4", tmp_path, date(2026, 10, 24))
+    assert not [s for s in sent if s[0] in ("fb", "ig")]
+    assert e["platforms"]["facebook"]["status"] == "pending" and e["platforms"]["instagram"]["status"] == "pending"

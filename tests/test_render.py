@@ -38,3 +38,29 @@ def test_render_fixture_short(tmp_path):
     v = next(s for s in probe["streams"] if s["codec_type"] == "video")
     assert (v["width"], v["height"]) == (1080, 1920) and v["r_frame_rate"] == "30/1"
     assert qa.check_video(out, "short", json.loads((proj / "qa.json").read_text())) == []
+
+
+@pytest.mark.slow
+def test_render_teaser(tmp_path):
+    from fbc import qa
+    from fbc.render import render_mp4
+    proj, tl = build(tmp_path, "teaser")
+    out = render_mp4(proj, tmp_path / "teaser.mp4")
+    assert qa.check_video(out, "short", json.loads((proj / "qa.json").read_text())) == []
+    assert "YouTube" in (proj / "index.html").read_text()
+
+
+def test_background_is_blurred_until_the_answer_is_revealed(tmp_path):
+    """The clip behind a question shows its answer (a clock behind 'what has hands and a face?'),
+    so it stays blurred through the hook and the question and sharpens exactly at the reveal."""
+    from fbc import render
+    proj, tl = build(tmp_path)
+    bgs = render._backgrounds(tl)
+    actions = render.build_actions(tl, bgs)
+    q1 = next(s for s in tl.segments if s.data.get("reveal_at"))
+    run = next(i for i, b in enumerate(bgs) if q1 in b["segs"])
+    sel = f"#bgw{run} .bg"
+    blur = [a for a in actions if a["sel"] == sel]
+    assert any(a["m"] == "set" and "blur(" in a["to"]["filter"] and a["t"] == bgs[run]["start"] for a in blur)
+    sharpen = next(a for a in blur if a["m"] == "to")
+    assert sharpen["t"] == round(q1.data["reveal_at"], 3) and sharpen["to"]["filter"].startswith("blur(0")

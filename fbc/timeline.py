@@ -43,12 +43,16 @@ class Timeline:
 
 OUTRO_TEXT = {"three_q": "Comment your score! 👇", "zoom_reveal": "Did you guess it? 👇",
               "riddle": "Did you solve it? 👇", "parents_vs_kids": "Who won at your house? 👇",
-              "true_false": "Comment your score! 👇", "would_you_rather": "A or B? Vote below! 👇"}
+              "true_false": "Comment your score! 👇", "would_you_rather": "A or B? Vote below! 👇",
+              "teaser": "Full quiz on YouTube NOW ▶"}
+OUTRO_SUB = {"teaser": "Search Family Brain Clash on YouTube"}
+OUTRO_SUB_DEFAULT = "Follow for a new quiz every day!"
+OUTRO_MAX_BY = {"teaser": 5.0}
 SHORT_MAX = LIMITS["short_max_s"]   # under 60 s: fits Shorts, Reels and FB Reels
 MIN_SHORT = {"three_q": 22.0, "parents_vs_kids": 22.0, "true_false": 22.0,
-             "zoom_reveal": 12.0, "riddle": 12.0, "would_you_rather": 12.0}
-COUNTDOWN = {"three_q": 3.0, "parents_vs_kids": 3.0, "true_false": 2.0, "zoom_reveal": 5.0, "riddle": 5.0}
-SEG_KIND = {"three_q": "mcq", "parents_vs_kids": "mcq", "true_false": "tf", "zoom_reveal": "zoom",
+             "zoom_reveal": 12.0, "riddle": 12.0, "would_you_rather": 12.0, "teaser": 22.0}
+COUNTDOWN = {"teaser": 3.0, "three_q": 3.0, "parents_vs_kids": 3.0, "true_false": 2.0, "zoom_reveal": 5.0, "riddle": 5.0}
+SEG_KIND = {"teaser": "mcq", "three_q": "mcq", "parents_vs_kids": "mcq", "true_false": "tf", "zoom_reveal": "zoom",
             "riddle": "riddle", "would_you_rather": "wyr"}
 MIN_COUNTDOWN = 2.0
 READ_PAD, REVEAL_PAD, OUTRO_MAX = 0.25, 0.5, 3.0
@@ -92,8 +96,9 @@ def _short_layout(item: ShortItem, d: dict, clips: dict, countdown: float, revea
                                 clips.get(q.id), n, total, label)
         segs.append(seg)
         t = seg.end
-    outro_len = min(d["outro"] + 0.3, OUTRO_MAX) + outro_extra
-    segs.append(Segment("outro", t, t + outro_len, data={"outro_text": OUTRO_TEXT[item.format], "hook": item.hook},
+    outro_len = min(d["outro"] + 0.3, OUTRO_MAX_BY.get(item.format, OUTRO_MAX)) + outro_extra
+    segs.append(Segment("outro", t, t + outro_len, data={"outro_text": OUTRO_TEXT[item.format], "hook": item.hook,
+                                                         "outro_sub": OUTRO_SUB.get(item.format, OUTRO_SUB_DEFAULT)},
                         audio=[("outro.wav", t)],
                         clip=first_clip))
     return segs, t + outro_len

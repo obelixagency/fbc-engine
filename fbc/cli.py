@@ -143,18 +143,14 @@ def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
 
 
 # ---------------------------------------------------------------- produce
-def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> dict:
-    """Voice, visuals, render, QA, upload as a private release asset. Raises on failure."""
+def _make_video(item, kind: str, work: Path, repo: ContentRepo, today: date, exclude: set) -> tuple:
+    """Voice, visuals, render and QA for one item. Returns (mp4, timeline, clips, used clip ids)."""
     from . import pexels, qa, render, timeline
-    item = batch.long if entry["kind"] == "long" else next(s for s in batch.shorts if s.id == entry["id"])
-    work = WORK / entry["id"]
     voice_dir = work / "voice"
-    req = build_audio_request(item)
-    durations = synthesize(req, voice_dir)
+    durations = synthesize(build_audio_request(item), voice_dir)
     make_sfx(work / "sfx")
-    portrait = entry["kind"] == "short"
+    portrait = kind == "short"
     w, h = (1080, 1920) if portrait else (1920, 1080)
-    exclude = repo.recent_clip_ids(LIMITS["clip_reuse_days"], today)
     clips, assets, used_ids = {}, {}, []
     questions = item.all_questions() if isinstance(item, LongItem) else item.questions
     for q in questions:
@@ -173,12 +169,26 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
             assets[name] = voice_dir / name
     for name in ("tick.wav", "ding.wav", "whoosh.wav"):
         assets[name] = work / "sfx" / name
-    project = render.write_project(tl, durations, assets, work / "project", entry["kind"])
-    out = work / f"{entry['id']}.mp4"
+    project = render.write_project(tl, durations, assets, work / "project", kind)
+    out = work / f"{item.id}.mp4"
     render.render_mp4(project, out)
-    problems = qa.check_video(out, entry["kind"], json.loads((project / "qa.json").read_text()))
+    problems = qa.check_video(out, kind, json.loads((project / "qa.json").read_text()))
     if problems:
         raise RuntimeError("QA failed: " + "; ".join(problems))
+    shutil.rmtree(work / "raw", ignore_errors=True)
+    return out, tl, clips, used_ids
+
+
+def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> dict:
+    """Voice, visuals, render, QA, upload as a private release asset. Raises on failure.
+    The long episode also gets a vertical teaser Reel for Facebook and Instagram."""
+    from . import render
+    from .teaser import teaser_item
+    item = batch.long if entry["kind"] == "long" else next(s for s in batch.shorts if s.id == entry["id"])
+    work = WORK / entry["id"]
+    exclude = repo.recent_clip_ids(LIMITS["clip_reuse_days"], today)
+    out, tl, clips, used_ids = _make_video(item, entry["kind"], work, repo, today, exclude)
+    questions = item.all_questions() if isinstance(item, LongItem) else item.questions
     entry["asset"] = repo.upload_asset(entry["week"], out)
     entry["duration"] = tl.duration
     entry["chapters"] = tl.chapters
@@ -193,9 +203,13 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
         heads = [t.split(":")[-1].strip() for t in item.titles][:3]
         thumbs = render.render_thumbnails(heads, frames, item.episode, work / "thumbs")
         entry["thumbnails"] = [repo.upload_asset(entry["week"], p) for p in thumbs]
+        if not entry.get("teaser_asset"):
+            t_out, _, _, t_ids = _make_video(teaser_item(item), "short", work / "teaser", repo, today,
+                                             exclude | set(used_ids))
+            entry["teaser_asset"] = repo.upload_asset(entry["week"], t_out)
+            used_ids += t_ids
     repo.add_clip_ids(used_ids, today)
     entry["status"] = "produced"
-    shutil.rmtree(work / "raw", ignore_errors=True)
     return entry
 
 
@@ -273,6 +287,8 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
         thumbs = [repo.download_asset(entry["week"], t, dl) for t in entry.get("thumbnails", [])]
         meta = {"title": entry["title"], "description": entry["description"], "first_comment": entry["first_comment"],
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
+        if entry.get("teaser_asset"):
+            meta["teaser"] = repo.download_asset(entry["week"], entry["teaser_asset"], dl)
         from . import publish as _pub
         _pub.publish_item(entry, meta, video, media_repo, now.date())
         _warn_if_youtube_private(repo, entry)

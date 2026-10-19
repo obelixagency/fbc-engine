@@ -83,3 +83,16 @@ def test_real_voice_lengths_fit_every_format(batch):
     for s in batch.shorts:
         tl = timeline.build_short_timeline(s, durs(s, 3.2), clips(s))
         assert tl.duration <= timeline.SHORT_MAX
+
+
+def test_teaser_from_long_episode(batch):
+    from fbc import teaser
+    t = teaser.teaser_item(batch.long)
+    assert t.format == "teaser" and len(t.questions) == 3 and t.id == batch.long.id + "_teaser"
+    assert str(batch.long.episode) in t.hook
+    req = audio.build_audio_request(t)
+    assert "YouTube" in req["lines"][-1]["text"]
+    tl = timeline.build_short_timeline(t, durs(t, 3.0), clips(t))
+    assert tl.duration <= timeline.SHORT_MAX and (tl.width, tl.height) == (1080, 1920)
+    outro = tl.segments[-1]
+    assert "YouTube" in outro.data["outro_text"] and "YouTube" in outro.data["outro_sub"]

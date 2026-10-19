@@ -87,7 +87,7 @@ body { margin: 0; background: var(--navy); color: var(--white); font-family: "Ar
       {% endif %}
     {% elif s.kind == "outro" %}
       <div class="big" id="sc{{ s.idx }}-big">{{ s.outro_text }}</div>
-      <div class="sub" id="sc{{ s.idx }}-sub">Follow for a new quiz every day!</div>
+      <div class="sub" id="sc{{ s.idx }}-sub">{{ s.data.outro_sub or "Follow for a new quiz every day!" }}</div>
     </div>
     <div class="stage" id="sc{{ s.idx }}-loop" style="opacity: 0">
       <div class="big">{{ s.data.hook }}</div>

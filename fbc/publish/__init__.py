@@ -28,6 +28,21 @@ def _err(e: Exception) -> str:
     return f"{type(e).__name__}: {str(e)[:300]}"
 
 
+def _teaser_fb(path: Path, caption: str, link: str) -> str:
+    vid = meta.fb_reel(path, caption)
+    try:
+        meta.fb_comment(vid, f"Watch the full Family Quiz Night here: {link}")
+    except Exception:
+        pass
+    return vid
+
+
+def _teaser_ig(path: Path, caption: str, media_repo: Path | None, today: date) -> str:
+    if media_repo is None:
+        raise RuntimeError("media repo not available for the public video URL")
+    return meta.ig_reel(media_host.push_public(media_repo, path, today), caption)
+
+
 def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None, today: date) -> dict:
     """meta_: title, description, first_comment, is_short, chapters, thumbnails (list of PNG paths, long only)."""
     caps = captions(meta_)
@@ -85,10 +100,20 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         return mid
 
     run("youtube", yt)
-    run("facebook", fb)
     if meta_["is_short"]:
+        run("facebook", fb)
         run("instagram", ig)
-    else:  # Reels are short-form only; a 10-minute episode is not posted to Instagram
+    elif meta_.get("teaser"):
+        # Facebook and Instagram get a vertical teaser Reel that sends people to the full episode on YouTube.
+        link = f"https://youtu.be/{plats['youtube']['ref']}" if plats["youtube"]["status"] == "published" else None
+        if link:   # without the YouTube link the teaser is pointless: leave both pending for the next tick
+            teaser_caption = (f"{meta_['title']}\n\nThis is just a taste! The FULL quiz is on YouTube now: {link}\n\n"
+                              f"{SOCIAL_TAGS}")
+            run("facebook", lambda: _teaser_fb(meta_["teaser"], teaser_caption, link))
+            run("instagram", lambda: _teaser_ig(meta_["teaser"], teaser_caption.replace(
+                link, f"{link} (search Family Brain Clash on YouTube)"), media_repo, today))
+    else:  # older entries without a teaser: full video on the Page, nothing on Instagram
+        run("facebook", fb)
         plats["instagram"]["status"] = "skipped"
     if all(p["status"] in ("published", "skipped") for p in plats.values()):
         entry["status"] = "published"

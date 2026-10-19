@@ -20,6 +20,7 @@ OUTROS = {
     "parents_vs_kids": "Who won at your house? Parents or kids?",
     "true_false": "How many did you get right? Comment your score!",
     "would_you_rather": "Which one would you pick? Vote in the comments!",
+    "teaser": "That's just three of thirty-one questions! Play the full quiz on our YouTube channel right now!",
 }
 
 

@@ -21,7 +21,11 @@ def synth_clip(path: Path, w: int, h: int, seconds: float = 8, color="0x2B5F8A")
 
 def build(work: Path, which: str = "short", index: int = 0, line_s: float = 1.3):
     batch = batch_from_obj(make_batch())
-    item = batch.shorts[index] if which == "short" else batch.long
+    if which == "teaser":
+        from fbc.teaser import teaser_item
+        item, which = teaser_item(batch.long), "short"
+    else:
+        item = batch.shorts[index] if which == "short" else batch.long
     req = audio.build_audio_request(item)
     vdir = work / "voice"; vdir.mkdir(parents=True, exist_ok=True)
     for line in req["lines"]:

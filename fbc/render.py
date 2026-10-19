@@ -24,6 +24,8 @@ class RenderError(RuntimeError):
 
 
 QUESTION_KINDS = {"mcq", "tf", "riddle", "zoom", "wyr"}
+HIDE_UNTIL_REVEAL = {"mcq", "tf", "riddle"}      # zoom reveal hides its subject by zooming in instead
+BLUR_HIDDEN, BLUR_SHOWN = "blur(26px) brightness(0.85)", "blur(0px) brightness(1)"
 PARTS = {"hook": ("-big",), "outro": ("-big", "-sub"), "intro": ("-pill", "-big", "-sub"),
          "round_title": ("-pill", "-big"), "score": ("-big", "-sub"), "tiers": ("-big", "-tiers"),
          "end": ("-big", "-sub")}
@@ -85,6 +87,14 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
         else:
             grow = 1.12 if bg["kind"] == "photo" else 1.06
             add("fromTo", sel, bg["start"], {"scale": grow, "duration": bg["duration"], "ease": "none"}, {"scale": 1})
+    for i, bg in enumerate(backgrounds):
+        # The clip often shows the answer itself, so keep it blurred until the first reveal in its run.
+        reveals = [sg.data["reveal_at"] for sg in bg["segs"]
+                   if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
+        if reveals:
+            sel = f"#bgw{i} .bg"
+            add("set", sel, bg["start"], {"filter": BLUR_HIDDEN})
+            add("to", sel, min(reveals), {"filter": BLUR_SHOWN, "duration": 0.5, "ease": "power2.out"})
     for i, seg in enumerate(tl.segments):
         p, t0 = f"#sc{i}", seg.start
         parts = list(PARTS.get(seg.kind, ("-q",)))
