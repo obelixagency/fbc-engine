@@ -141,3 +141,40 @@ def test_difficulty_is_normalized_before_validation():
 
 def test_schema_constrains_difficulty():
     assert generate.Q_SCHEMA["properties"]["difficulty"]["enum"] == ["easy", "medium", "hard"]
+
+
+def test_fact_check_quota_does_not_kill_the_batch():
+    from fbc.gemini import QuotaExceeded
+    good, _ = fake_gen_factory()
+
+    def gen(prompt, schema, grounded=False, **kw):
+        if grounded:
+            raise QuotaExceeded("Gemini quota exceeded (429)", http=429)
+        return good(prompt, schema, grounded)
+    b = build(gen)
+    qs = [q for s in b.shorts if s.format != "would_you_rather" for q in s.questions]
+    assert len(b.shorts) == 14 and qs and all(not q.verified for q in qs)
+    assert all(any("fact-check quota" in f for f in q.flags) for q in qs)
+
+
+def test_quota_error_names_the_exhausted_quota(monkeypatch):
+    from fbc import gemini
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+
+    class R:
+        status_code = 429
+        headers = {}
+        text = "x"
+
+        def json(self):
+            return {"error": {"details": [{"violations": [{"quotaId": "SearchGroundingRequestsPerDay-FreeTier"}]}]}}
+    import pytest as _p
+    gemini._last_text_call = 0.0
+    orig = gemini.requests.post
+    gemini.requests.post = lambda *a, **k: R()
+    try:
+        with _p.raises(gemini.QuotaExceeded) as e:
+            gemini._post("https://x/models/m:generateContent", {})
+    finally:
+        gemini.requests.post = orig
+    assert "SearchGroundingRequestsPerDay" in str(e.value)

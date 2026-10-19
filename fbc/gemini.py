@@ -35,6 +35,15 @@ def _headers() -> dict:
     return {"Content-Type": "application/json", "x-goog-api-key": env("GEMINI_API_KEY")}
 
 
+def _quota_ids(r) -> str:
+    try:
+        details = r.json().get("error", {}).get("details", [])
+    except (ValueError, AttributeError):
+        return ""
+    return " ".join(str(v.get("quotaId", "")) for d in details if isinstance(d, dict)
+                    for v in d.get("violations", []) if isinstance(v, dict) and v.get("quotaId"))
+
+
 def _quota_window(r) -> str | None:
     """PER_DAY / PER_MINUTE from Google's QuotaFailure details (safe to log), else None."""
     try:
@@ -68,7 +77,8 @@ def _post(url: str, body: dict, timeout: int = 180) -> dict:
             break
         window = _quota_window(r)
         if window == "PER_DAY" or attempt == RETRIES - 1:
-            raise QuotaExceeded("Gemini quota exceeded (429)", http=429, reason=window)
+            ids = _quota_ids(r)
+            raise QuotaExceeded(f"Gemini quota exceeded (429){': ' + ids if ids else ''}", http=429, reason=window)
         try:
             wait = float(getattr(r, "headers", {}).get("Retry-After", 0))
         except (TypeError, ValueError):
