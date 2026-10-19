@@ -25,7 +25,7 @@ class RenderError(RuntimeError):
 
 QUESTION_KINDS = {"mcq", "tf", "riddle", "zoom", "wyr"}
 HIDE_UNTIL_REVEAL = {"mcq", "tf", "riddle"}      # zoom reveal hides its subject by zooming in instead
-BLUR_HIDDEN, BLUR_SHOWN = "blur(26px) brightness(0.85)", "blur(0px) brightness(1)"
+BLUR_VF = "boxblur=luma_radius=40:luma_power=2:chroma_radius=20:chroma_power=2,eq=brightness=-0.06"
 PARTS = {"hook": ("-big",), "outro": ("-big", "-sub"), "intro": ("-pill", "-big", "-sub"),
          "round_title": ("-pill", "-big"), "score": ("-big", "-sub"), "tiers": ("-big", "-tiers"),
          "end": ("-big", "-sub")}
@@ -66,6 +66,10 @@ def _backgrounds(tl: Timeline) -> list[dict]:
     for bg in out:
         bg["duration"] = round(bg["end"] - bg["start"], 3)
         bg["start"] = round(bg["start"], 3)
+        reveals = [sg.data["reveal_at"] for sg in bg["segs"]
+                   if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
+        bg["reveal"] = round(min(reveals), 3) if reveals else None
+        bg["blur_name"] = f"blur_{bg['name']}" if reveals else None
     return out
 
 
@@ -88,13 +92,8 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
             grow = 1.12 if bg["kind"] == "photo" else 1.06
             add("fromTo", sel, bg["start"], {"scale": grow, "duration": bg["duration"], "ease": "none"}, {"scale": 1})
     for i, bg in enumerate(backgrounds):
-        # The clip often shows the answer itself, so keep it blurred until the first reveal in its run.
-        reveals = [sg.data["reveal_at"] for sg in bg["segs"]
-                   if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
-        if reveals:
-            sel = f"#bgw{i} .bg"
-            add("set", sel, bg["start"], {"filter": BLUR_HIDDEN})
-            add("to", sel, min(reveals), {"filter": BLUR_SHOWN, "duration": 0.5, "ease": "power2.out"})
+        if bg.get("reveal") is not None:   # blurred copy covers the clip (which may show the answer) until the reveal
+            add("to", f"#bgb{i}", bg["reveal"], {"opacity": 0, "duration": 0.5, "ease": "power2.out"})
     for i, seg in enumerate(tl.segments):
         p, t0 = f"#sc{i}", seg.start
         parts = list(PARTS.get(seg.kind, ("-q",)))
@@ -177,6 +176,9 @@ def write_project(tl: Timeline, durations: dict, assets: dict[str, Path], outdir
     from .audio import wav_duration
     sfx_len = {n: round(wav_duration(adir / n), 3) for n in ("tick.wav", "ding.wav", "whoosh.wav") if (adir / n).exists()}
     backgrounds = _backgrounds(tl)
+    for bg in backgrounds:
+        if bg["blur_name"] and not (adir / bg["blur_name"]).exists():
+            _blur_copy(adir / bg["name"], adir / bg["blur_name"], bg["kind"])
     scenes = []
     for i, seg in enumerate(tl.segments):
         scenes.append({"idx": i, "kind": seg.kind, "start": round(seg.start, 3), "duration": round(seg.end - seg.start, 3),
@@ -193,6 +195,15 @@ def write_project(tl: Timeline, durations: dict, assets: dict[str, Path], outdir
                                                  "voice": voice, "countdowns": tl.countdown_windows(),
                                                  "chapters": tl.chapters}))
     return outdir
+
+
+def _blur_copy(src: Path, dest: Path, kind: str) -> None:
+    cmd = (["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-q:v", "3", str(dest)] if kind == "photo"
+           else ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-an", "-c:v", "libx264",
+                 "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dest)])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RenderError(f"ffmpeg failed blurring {src.name}: {r.stderr[-400:]}")
 
 
 def prepare_clip(src: Path, dest: Path, width: int, height: int, seconds: float, kind: str) -> Path:

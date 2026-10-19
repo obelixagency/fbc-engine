@@ -54,6 +54,13 @@ body { margin: 0; background: var(--navy); color: var(--white); font-family: "Ar
   {% else %}
     <img id="bgi{{ loop.index0 }}" class="clip bg" src="assets/{{ bg.name }}" alt="" data-start="{{ bg.start }}" data-duration="{{ bg.duration }}" data-track-index="0" />
   {% endif %}
+  {% if bg.blur_name %}
+    {% if bg.kind == "video" %}
+    <video id="bgb{{ loop.index0 }}" class="clip bg" src="assets/{{ bg.blur_name }}" muted playsinline data-start="{{ bg.start }}" data-duration="{{ bg.duration }}" data-track-index="4"></video>
+    {% else %}
+    <img id="bgb{{ loop.index0 }}" class="clip bg" src="assets/{{ bg.blur_name }}" alt="" data-start="{{ bg.start }}" data-duration="{{ bg.duration }}" data-track-index="4" />
+    {% endif %}
+  {% endif %}
   </div>
 {% endfor %}
   <div id="overlay"></div>

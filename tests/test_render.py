@@ -51,16 +51,17 @@ def test_render_teaser(tmp_path):
 
 
 def test_background_is_blurred_until_the_answer_is_revealed(tmp_path):
-    """The clip behind a question shows its answer (a clock behind 'what has hands and a face?'),
-    so it stays blurred through the hook and the question and sharpens exactly at the reveal."""
+    """The clip behind a question shows its answer (a clock behind 'what has hands and a face?'), so a
+    pre-blurred copy (made with ffmpeg, no CSS filter) covers it until the reveal, then fades out."""
     from fbc import render
     proj, tl = build(tmp_path)
+    html = (proj / "index.html").read_text()
+    assert "filter" not in html.split("const ACTIONS =")[1]
     bgs = render._backgrounds(tl)
     actions = render.build_actions(tl, bgs)
     q1 = next(s for s in tl.segments if s.data.get("reveal_at"))
     run = next(i for i, b in enumerate(bgs) if q1 in b["segs"])
-    sel = f"#bgw{run} .bg"
-    blur = [a for a in actions if a["sel"] == sel]
-    assert any(a["m"] == "set" and "blur(" in a["to"]["filter"] and a["t"] == bgs[run]["start"] for a in blur)
-    sharpen = next(a for a in blur if a["m"] == "to")
-    assert sharpen["t"] == round(q1.data["reveal_at"], 3) and sharpen["to"]["filter"].startswith("blur(0")
+    assert (proj / "assets" / bgs[run]["blur_name"]).exists()
+    assert f'id="bgb{run}"' in html
+    fade = [a for a in actions if a["sel"] == f"#bgb{run}"]
+    assert any(a["m"] == "to" and a["to"]["opacity"] == 0 and a["t"] == round(q1.data["reveal_at"], 3) for a in fade)
