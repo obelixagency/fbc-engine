@@ -149,6 +149,16 @@ class ContentRepo:
             return
         self.run_gh("issue", "create", "-R", self.gh_repo, "--title", title, "--body", body)
 
+    def report_issue(self, title: str, body: str) -> None:
+        """Like open_issue, but a repeat failure is added as a comment so new reasons are never lost."""
+        existing = json.loads(self.run_gh("issue", "list", "-R", self.gh_repo, "--state", "open", "--search",
+                                          f'"{title}" in:title', "--json", "title,number") or "[]")
+        same = [i for i in existing if i.get("title") == title]
+        if same:
+            self.run_gh("issue", "comment", str(same[0]["number"]), "-R", self.gh_repo, "--body", body)
+        else:
+            self.run_gh("issue", "create", "-R", self.gh_repo, "--title", title, "--body", body)
+
     def open_batch_pr(self, week: str, raw: str, body_md: str) -> None:
         branch = f"batch/{week}"
         self._git("checkout", "-q", "-B", branch)

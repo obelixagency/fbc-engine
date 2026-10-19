@@ -74,11 +74,13 @@ def cmd_generate(repo: ContentRepo, week: str, dry_run: bool, today: date, gen=N
     kw = {"gen": gen} if gen else {}
     try:
         batch = build_batch(week, weights, used, episode, random.Random(week), today=today, report_md=report, **kw)
-    except BatchError as e:   # private repo: the full reasons are safe there, never in public logs
-        repo.open_issue(f"{'[dry run] ' if dry_run else ''}Batch {week} generation failed",
-                        "Generation stopped before opening a PR. Reasons (first ones):\n\n"
-                        + "\n".join(f"- {p}" for p in e.problems)
-                        + "\n\nRe-run **Generate weekly batch** after fixing, or wait for the next Friday run.")
+    except Exception as e:   # private repo: the full reasons are safe there, never in public logs
+        reasons = e.problems if isinstance(e, BatchError) else [
+            f"{type(e).__name__} (http={getattr(e, 'http', None)}, reason={getattr(e, 'reason', None)}): {str(e)[:500]}"]
+        repo.report_issue(f"{'[dry run] ' if dry_run else ''}Batch {week} generation failed",
+                          "Generation stopped before opening a PR. Reasons (first ones):\n\n"
+                          + "\n".join(f"- {p}" for p in reasons)
+                          + "\n\nRe-run **Generate weekly batch** after fixing, or wait for the next Friday run.")
         raise
     body = pr_body(batch)
     if dry_run:

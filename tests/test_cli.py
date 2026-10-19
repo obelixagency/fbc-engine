@@ -100,3 +100,22 @@ def test_private_youtube_upload_opens_one_issue(repo):
     assert "Private" in repo.issues[0][-3]
     cli._warn_if_youtube_private(repo, {"id": "s_x_01", "platforms": {"youtube": {"status": "published"}}})
     assert len(repo.issues) == 1
+
+
+def test_any_generate_failure_is_reported_and_repeats_become_comments(tmp_path, monkeypatch):
+    calls = []
+
+    def gh(*a):
+        calls.append(a)
+        if a[:2] == ("issue", "list"):
+            return json.dumps([{"title": "[dry run] Batch 2026-W45 generation failed", "number": 7}]) if len(calls) > 2 else "[]"
+        return ""
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    r = ContentRepo(tmp_path, "o/fbc-content", run_gh=gh)
+    from fbc.gemini import GeminiError
+    monkeypatch.setattr(cli, "build_batch", lambda *a, **k: (_ for _ in ()).throw(GeminiError("bad", http=400, reason="INVALID_ARGUMENT")))
+    for _ in range(2):
+        with pytest.raises(GeminiError):
+            cli.cmd_generate(r, "2026-W45", dry_run=True, today=NOW.date())
+    assert calls[1][:2] == ("issue", "create") and "INVALID_ARGUMENT" in calls[1][-1]
+    assert calls[3][:3] == ("issue", "comment", "7")
