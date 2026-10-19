@@ -1,9 +1,10 @@
 name: Tick (produce what's due soon, publish what's due now)
+# GitHub's cron is unreliable for this repo (on Oct 19 only 1 of ~20 scheduled runs fired), so the tick does not
+# depend on it: one run loops for ~5h20m (a tick every 10 min, analytics once a day) and then starts the next
+# run itself. The cron below is only a backup that restarts the loop if the chain ever breaks.
 on:
   schedule:
-    # GitHub drops many scheduled runs (we saw only 3 of 9 hourly runs fire). Running every 20 min at odd
-    # minutes (away from the busy top of the hour) means a missed run is covered within minutes.
-    - cron: "13,33,53 * * * *"
+    - cron: "13,43 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -15,10 +16,11 @@ concurrency:
   cancel-in-progress: false
 permissions:
   contents: read
+  actions: write          # lets the loop start its own next run
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,8 +55,9 @@ jobs:
           repository: obelixagency/fbc-media
           token: ${{ secrets.CONTENT_REPO_TOKEN }}
           path: media
-      - name: Tick
+      - name: Tick loop
         env:
+          LOOP_MINUTES: ${{ inputs.dry_run && '0' || '320' }}
           GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
@@ -65,4 +68,22 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
-        run: python -m fbc.cli tick ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          end=$(( $(date +%s) + LOOP_MINUTES * 60 ))
+          while :; do
+            git -C content pull -q --rebase || true
+            git -C media pull -q --rebase || true
+            python -m fbc.cli tick ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
+            if [ "$(date -u +%H)" = "12" ] && [ ! -f "work/analytics-$(date -u +%F)" ]; then
+              mkdir -p work && touch "work/analytics-$(date -u +%F)"
+              git -C content pull -q --rebase || true
+              python -m fbc.cli analytics || echo "[fbc] analytics_failed {}"
+            fi
+            [ "$(date +%s)" -ge "$end" ] && break
+            sleep $(( 600 - $(date +%s) % 600 ))
+          done
+      - name: Start the next loop
+        if: ${{ !cancelled() && !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/actions/workflows/tick.yml/dispatches" -f ref=main

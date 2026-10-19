@@ -1,7 +1,6 @@
 name: Analytics (score videos after 72 h, re-weight formats)
+# Runs daily inside the tick loop (12:00 UTC); this workflow is for running it by hand.
 on:
-  schedule:
-    - cron: "0 12 * * *"
   workflow_dispatch:
 concurrency:
   group: tick              # never runs at the same time as a tick (both write the queue)
