@@ -223,6 +223,7 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
             if entry["week"] not in batches:
                 batches[entry["week"]] = repo.load_batch(entry["week"])
             producer(entry, batches[entry["week"]], repo, today)
+            entry.pop("error", None)          # a retry that succeeds leaves no stale error behind
             done += 1
             safe("produced", id=entry["id"], kind=entry["kind"])
         except ResumeLater:

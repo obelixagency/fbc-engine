@@ -107,3 +107,21 @@ def test_quota_on_all_models_keeps_progress(tmp_path, batch):
     calls = []
     audio.synthesize(req, tmp_path, tts=lambda t, v, s, model=None: calls.append(1) or tone_wav(n_lines(t)), spacing_s=0)
     assert len(list(tmp_path.glob("*.wav"))) == len(req["lines"])
+
+
+def test_long_pause_inside_a_line_is_shortened(tmp_path):
+    import subprocess
+    from fbc import audio, qa
+    p = tmp_path / "line.wav"
+    # 1 s tone, 1.6 s silence, 1 s tone: QA would flag the inner pause
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=f=440:d=1",
+                    "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-f", "lavfi", "-i", "sine=f=440:d=1",
+                    "-filter_complex", "[0]aresample=24000[a];[1]atrim=0:1.6[b];[2]aresample=24000[c];[a][b][c]concat=n=3:v=0:a=1",
+                    "-ac", "1", str(p)], check=True)
+    assert qa._silences(p)
+    audio.tighten(p)
+    assert not qa._silences(p)
+    assert 2.0 < audio.wav_duration(p) < 3.0
+    before = audio.wav_duration(p)
+    audio.tighten(p)                      # idempotent: cached lines are tightened again on every tick
+    assert abs(audio.wav_duration(p) - before) < 0.05

@@ -99,6 +99,20 @@ def _cut(src: Path, dest: Path, t0: float, t1: float | None) -> None:
                     str(dest)], check=True)
 
 
+def tighten(path: Path, keep_s: float = 0.35) -> None:
+    """Shorten any pause inside a line to keep_s (Gemini sometimes adds a dramatic 1-2 s pause, which QA
+    rightly rejects). Idempotent, so it is safe to run on cached lines every tick."""
+    tmp = path.with_suffix(".tight.wav")
+    af = (f"silenceremove=stop_periods=-1:stop_duration={keep_s + 0.25:.2f}:stop_threshold=-45dB"
+          f":stop_silence={keep_s:.2f}")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(path), "-af", af, "-ar", "24000", "-ac", "1",
+                    str(tmp)], check=True)
+    if wav_duration(tmp) > 0.3:
+        tmp.replace(path)
+    else:
+        tmp.unlink(missing_ok=True)
+
+
 def split_at_pauses(wav: Path, n: int, dests: list[Path]) -> bool:
     """Cut a batched take into n pieces at its n-1 longest pauses. False if it cannot be split cleanly."""
     if n == 1:
@@ -165,6 +179,8 @@ def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) ->
             part = outdir / f"{l['id']}.part.wav"
             part.write_bytes(data)
             part.rename(outdir / f"{l['id']}.wav")
+    for l in req["lines"]:
+        tighten(outdir / f"{l['id']}.wav")
     return {l["id"]: wav_duration(outdir / f"{l['id']}.wav") for l in req["lines"]}
 
 
