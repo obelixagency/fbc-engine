@@ -34,7 +34,8 @@ def fake_gen_factory(bad_title=False, dup_question=None, wrong_ids=()):
             fmt = line[2:].split(",")[0].strip()
             s = make_short(i, fmt)
             for n, qq in enumerate(s["questions"]):
-                qq["question"] = f"Unique {fmt} question {i} {n}?" if fmt != "would_you_rather" else "Would you rather...?"
+                qq["question"] = (f"Unique {fmt} question {state['calls']} {i} {n}?" if fmt != "would_you_rather"
+                                  else "Would you rather...?")
             if bad_title and i == 0:
                 s["titles"][0] = "Quiz for kids"
             if dup_question and i == 1 and fmt != "would_you_rather":
@@ -51,10 +52,10 @@ def build(gen, used=()):
                                 rng=random.Random(7), gen=gen, today=date(2026, 10, 23))
 
 
-def test_builds_14_shorts_and_long():
+def test_builds_a_full_week_of_shorts_and_long():
     gen, state = fake_gen_factory()
     b = build(gen)
-    assert len(b.shorts) == 14
+    assert len(b.shorts) == generate.N_SHORTS == 28
     assert len(b.long.rounds) == 5 and all(len(r["questions"]) == 6 for r in b.long.rounds)
     assert {s.format for s in b.shorts} == set(FORMAT_SIZES)
     assert all(s.hook and s.hook_id for s in b.shorts)
@@ -106,7 +107,7 @@ def test_tops_up_missing_shorts_with_one_more_call():
                     s["questions"][0]["question"] = "word " * 30
         return out
     b = build(gen)
-    assert len(b.shorts) == 14 and calls["shorts"] == 2
+    assert len(b.shorts) == generate.N_SHORTS and calls["shorts"] == 3
 
 
 def test_too_few_survivors_error_lists_rejection_reasons():
@@ -121,7 +122,7 @@ def test_too_few_survivors_error_lists_rejection_reasons():
     with pytest.raises(BatchError) as e:
         build(gen)
     text = "\n".join(e.value.problems)
-    assert "only 0 of 14" in text and "words (max" in text
+    assert "only 0 of 28" in text and "words (max" in text
 
 
 def test_difficulty_is_normalized_before_validation():
@@ -153,7 +154,7 @@ def test_fact_check_quota_does_not_kill_the_batch():
         return good(prompt, schema, grounded)
     b = build(gen)
     qs = [q for s in b.shorts if s.format != "would_you_rather" for q in s.questions]
-    assert len(b.shorts) == 14 and qs and all(not q.verified for q in qs)
+    assert len(b.shorts) == generate.N_SHORTS and qs and all(not q.verified for q in qs)
     assert all(any("fact-check quota" in f for f in q.flags) for q in qs)
 
 

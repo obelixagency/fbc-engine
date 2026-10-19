@@ -8,7 +8,10 @@ BRAND = {
 }
 OVERLAY = "rgba(22,19,63,0.5)"
 
-SHORT_SLOTS_ET = ["07:00", "16:00"]
+# 4 Shorts a day at US family prime times. YouTube's free API quota (10,000 units/day, 1,600 per upload)
+# allows 6 uploads a day: 4 Shorts + the Saturday episode stays safely inside it.
+SHORT_SLOTS_ET = ["07:00", "12:00", "16:00", "20:00"]
+SHORTS_PER_WEEK = 7 * len(SHORT_SLOTS_ET)
 LONG_SLOT_ET = ("SAT", "10:00")
 TZ_ET = "America/New_York"
 

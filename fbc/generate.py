@@ -1,4 +1,4 @@
-"""Weekly batch generation (spec §5): 14 Shorts + 1 long video, deduped, copy-checked, fact-checked."""
+"""Weekly batch generation (spec §5): a week of Shorts + 1 long video, deduped, copy-checked, fact-checked."""
 from __future__ import annotations
 
 import json
@@ -19,7 +19,10 @@ SHORT_PROMPT = (ROOT / "prompts" / "generate_short.md").read_text()
 LONG_PROMPT = (ROOT / "prompts" / "generate_long.md").read_text()
 HOOKS = json.loads((ROOT / "prompts" / "hooks.json").read_text())
 ROUND_NAMES = ["Animals", "Around the World", "Science & Space", "Food & Body", "Brain Teasers"]
-N_SHORTS = 14
+from .config import SHORTS_PER_WEEK
+
+N_SHORTS = SHORTS_PER_WEEK
+PER_CALL = 14                # Shorts asked for per Gemini call (keeps each JSON reply a manageable size)
 EXTRA = 0.2
 
 Q_SCHEMA = {"type": "object", "properties": {
@@ -154,8 +157,11 @@ def build_batch(week: str, weights: dict, used: list[dict], episode: int, rng: r
     seen: set = set()
     formats = pick_formats(weights, N_SHORTS, rng)
     rejects: list[str] = []
-    cands = _shorts(formats, weights, used, rng, gen, today, seen)
-    shorts = _assign_and_filter(cands, week, used, today, seen, N_SHORTS, rejects=rejects)
+    shorts: list[dict] = []
+    for i in range(0, len(formats), PER_CALL):
+        so_far = [{"question": q["question"]} for s_ in shorts for q in s_["questions"]]
+        cands = _shorts(formats[i:i + PER_CALL], weights, used + so_far, rng, gen, today, seen)
+        _assign_and_filter(cands, week, used, today, seen, N_SHORTS, out=shorts, rejects=rejects)
     if len(shorts) < N_SHORTS:   # one top-up call for the formats that are still missing
         have = [x["format"] for x in shorts]
         missing = list(formats)

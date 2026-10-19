@@ -181,7 +181,9 @@ def question_problems(d: dict, kind: str = "mcq") -> list[str]:
     return problems
 
 
-N_SHORTS = 14
+from .config import SHORTS_PER_WEEK
+
+N_SHORTS = SHORTS_PER_WEEK          # most a week can hold; older batches with fewer still load
 
 
 def _types(d: dict, problems: list[str]) -> None:
@@ -228,8 +230,8 @@ def parse_batch(raw: str) -> Batch:
     if problems:
         raise BatchError(problems)
     ids = [s.get("id") for s in d["shorts"]]
-    if len(ids) != N_SHORTS:
-        problems.append(f"batch needs exactly {N_SHORTS} shorts (has {len(ids)})")
+    if not 1 <= len(ids) <= N_SHORTS:
+        problems.append(f"batch needs 1 to {N_SHORTS} shorts (has {len(ids)})")
     if len(set(ids)) != len(ids):
         problems.append("short ids must be unique")
     shorts: list[ShortItem] = []

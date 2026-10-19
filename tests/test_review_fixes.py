@@ -30,7 +30,7 @@ def repo(tmp_path):
 
 # C2 -------------------------------------------------------------------------------------
 @pytest.mark.parametrize("mutate", [
-    lambda b: b["shorts"].pop(3),                                           # a deleted Short
+    lambda b: b["shorts"].clear(),                                           # no Shorts at all
     lambda b: b["shorts"][0]["questions"][0].__setitem__("answer_index", "1"),
     lambda b: b["shorts"].append(b["shorts"][0]),                           # duplicate id / extra short
 ])
@@ -169,3 +169,12 @@ def test_pexels_429_means_resume_later(monkeypatch):
     monkeypatch.setattr(pexels.requests, "get", lambda *a, **k: R())
     with pytest.raises(ResumeLater):
         pexels.find_clip("x", "portrait", set())
+
+
+def test_deleting_a_short_in_review_is_allowed():
+    """Reviewers may delete a weak Short in the PR; that week simply has one slot fewer."""
+    from fbc.models import parse_batch
+    from tests.conftest import make_batch
+    b = make_batch()
+    b["shorts"].pop(3)
+    assert len(parse_batch(json.dumps(b)).shorts) == 13

@@ -32,7 +32,7 @@ def test_tick_dry_run_produces_within_48h_and_publishes_nothing(repo, capsys):
     q = repo.queue()
     assert len(q) == 15
     within = [e for e in q if datetime.fromisoformat(e["slot_utc"]) <= NOW + timedelta(hours=48)]
-    assert n == len(within) == 4   # Mon 07:00/16:00, Tue 07:00/16:00 ET
+    assert n == len(within) == 8   # Mon + Tue, 4 slots a day ET
     assert cli.publish(repo, NOW, None, dry_run=True) == 0
     out = capsys.readouterr().out
     assert "Which animal" not in out   # public logs never carry question text

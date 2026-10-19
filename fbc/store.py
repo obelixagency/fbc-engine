@@ -25,7 +25,10 @@ def plan_queue(batch: Batch) -> list[dict]:
     shorts = iter(batch.shorts)
     q = []
     for kind, at in slots:
-        item_id = batch.long.id if kind == "long" else next(shorts).id
+        item = batch.long if kind == "long" else next(shorts, None)
+        if item is None:      # an older batch with fewer Shorts than slots: leave the rest empty
+            continue
+        item_id = item.id
         q.append({"id": item_id, "kind": kind, "week": batch.week, "slot_utc": at.isoformat(), "status": "planned",
                   "asset": None, "platforms": {p: {"status": "pending", "ref": None, "error": None, "attempts": 0}
                                                for p in PLATFORMS}})
