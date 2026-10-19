@@ -2,7 +2,7 @@
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from .config import LIMITS, LONG_SLOT_ET, SHORT_SLOTS_ET, TZ_ET
+from .config import LIMITS, LONG_SLOTS_ET, SHORT_SLOTS_ET, TZ_ET
 
 ET = ZoneInfo(TZ_ET)
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
@@ -30,8 +30,9 @@ def week_slots(week: str) -> list[tuple[str, datetime]]:
         day = monday + timedelta(days=d)
         for hhmm in SHORT_SLOTS_ET:
             slots.append(("short", _at(day, hhmm)))
-        if DAYS[d] == LONG_SLOT_ET[0]:
-            slots.append(("long", _at(day, LONG_SLOT_ET[1])))
+        for dname, hhmm in LONG_SLOTS_ET:
+            if DAYS[d] == dname:
+                slots.append(("long", _at(day, hhmm)))
     return sorted(slots, key=lambda x: x[1])
 
 

@@ -56,20 +56,21 @@ def pr_body(batch: Batch) -> str:
     lines += ["", "**Titles** (change `chosen_title_index` to pick another):"]
     for s in batch.shorts:
         lines.append(f"- {s.id}: " + " · ".join(f"[{i}] {t}" for i, t in enumerate(s.titles)))
-    lines += ["", f"### Long video — Family Quiz Night #{batch.long.episode}", head]
-    for r in batch.long.rounds:
-        for q in r["questions"]:
-            lines.append(row(q, r["name"], "long"))
-    lines.append(row(batch.long.bonus, "Bonus", "long"))
-    lines += ["", "Titles: " + " · ".join(f"[{i}] {t}" for i, t in enumerate(batch.long.titles)), "",
-              "### Last week's performance", batch.report_md or "_First week: no data yet._"]
+    for lv in batch.longs:
+        lines += ["", f"### Long video — Family Quiz Night #{lv.episode} (`{lv.id}`)", head]
+        for r in lv.rounds:
+            for q in r["questions"]:
+                lines.append(row(q, r["name"], "long"))
+        lines.append(row(lv.bonus, "Bonus", "long"))
+        lines += ["", "Titles: " + " · ".join(f"[{i}] {t}" for i, t in enumerate(lv.titles))]
+    lines += ["", "### Last week's performance", batch.report_md or "_First week: no data yet._"]
     return "\n".join(lines)
 
 
 def cmd_generate(repo: ContentRepo, week: str, dry_run: bool, today: date, gen=None) -> Batch:
     weights = repo.weights(default_weights())
     used = repo.used()
-    episode = len(repo.merged_weeks()) + 1
+    episode = repo.episode_count() + 1
     report = (repo.path / "analytics" / "last_report.md").read_text() if (repo.path / "analytics" / "last_report.md").exists() else ""
     kw = {"gen": gen} if gen else {}
     try:
@@ -127,7 +128,7 @@ def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
         except Exception as e:  # noqa: BLE001 — any malformed edit becomes an Issue, never a stuck tick
             _batch_issue(repo, week, [f"{type(e).__name__}: {e}"])
             continue
-        items = {s.id: s for s in batch.shorts} | {batch.long.id: batch.long}
+        items = {s.id: s for s in batch.shorts} | {lv.id: lv for lv in batch.longs}
         now = datetime.now(timezone.utc) if now_ is None else now_
         for entry in entries:
             entry.update(_item_meta(batch, items[entry["id"]]))
@@ -184,7 +185,7 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
     The long episode also gets a vertical teaser Reel for Facebook and Instagram."""
     from . import render
     from .teaser import teaser_item
-    item = batch.long if entry["kind"] == "long" else next(s for s in batch.shorts if s.id == entry["id"])
+    item = next(x for x in [*batch.longs, *batch.shorts] if x.id == entry["id"])
     work = WORK / entry["id"]
     exclude = repo.recent_clip_ids(LIMITS["clip_reuse_days"], today)
     out, tl, clips, used_ids = _make_video(item, entry["kind"], work, repo, today, exclude)

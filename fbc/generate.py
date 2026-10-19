@@ -19,7 +19,7 @@ SHORT_PROMPT = (ROOT / "prompts" / "generate_short.md").read_text()
 LONG_PROMPT = (ROOT / "prompts" / "generate_long.md").read_text()
 HOOKS = json.loads((ROOT / "prompts" / "hooks.json").read_text())
 ROUND_NAMES = ["Animals", "Around the World", "Science & Space", "Food & Body", "Brain Teasers"]
-from .config import SHORTS_PER_WEEK
+from .config import LONG_SLOTS_ET, SHORTS_PER_WEEK
 
 N_SHORTS = SHORTS_PER_WEEK
 PER_CALL = 14                # Shorts asked for per Gemini call (keeps each JSON reply a manageable size)
@@ -116,9 +116,10 @@ def _assign_and_filter(cands: list[dict], week: str, used, today, seen, n: int,
     return out
 
 
-def _long(week, episode, used, gen, today, seen) -> dict:
-    raw = gen(LONG_PROMPT.format(episode=episode, rounds=", ".join(ROUND_NAMES), avoid=_avoid(used)), LONG_SCHEMA) or {}
-    lid = f"l_{_wk(week)}"
+def _long(week, episode, used, gen, today, seen, n: int = 0, avoid_extra: list | None = None) -> dict:
+    raw = gen(LONG_PROMPT.format(episode=episode, rounds=", ".join(ROUND_NAMES),
+                                 avoid=_avoid(used + (avoid_extra or []))), LONG_SCHEMA) or {}
+    lid = f"l_{_wk(week)}" + (f"_{n + 1}" if n else "")
     rounds = []
     for r_i, name in enumerate(ROUND_NAMES, 1):
         src = next((r for r in raw.get("rounds", []) if r.get("name") == name), None) or \
@@ -173,8 +174,12 @@ def build_batch(week: str, weights: dict, used: list[dict], episode: int, rng: r
     if len(shorts) < N_SHORTS:
         raise BatchError([f"only {len(shorts)} of {N_SHORTS} Shorts survived validation and de-duplication",
                           *rejects[:40]])
-    long = _long(week, episode, used, gen, today, seen)
-    batch = batch_from_obj({"week": week, "shorts": shorts, "long": long, "report_md": report_md})
+    longs = []
+    for n in range(len(LONG_SLOTS_ET)):
+        so_far = [{"question": q["question"]} for l in longs for r in l["rounds"] for q in r["questions"]]
+        longs.append(_long(week, episode + n, used, gen, today, seen, n, avoid_extra=so_far))
+    batch = batch_from_obj({"week": week, "shorts": shorts, "long": longs[0], "extra_longs": longs[1:],
+                            "report_md": report_md})
     to_check = [q for s in batch.shorts if s.format != "would_you_rather" for q in s.questions]
-    verify_questions(to_check + batch.long.all_questions(), gen=gen)
+    verify_questions(to_check + [q for l in batch.longs for q in l.all_questions()], gen=gen)
     return batch

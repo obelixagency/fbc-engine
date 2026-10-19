@@ -81,12 +81,17 @@ class Batch:
     shorts: list[ShortItem]
     long: LongItem
     report_md: str = ""
+    extra_longs: list[LongItem] = field(default_factory=list)   # 2nd+ episode of the week (older batches: none)
+
+    @property
+    def longs(self) -> list[LongItem]:
+        return [self.long, *self.extra_longs]
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)
 
     def all_questions(self) -> list[Question]:
-        return [q for s in self.shorts for q in s.questions] + self.long.all_questions()
+        return [q for s in self.shorts for q in s.questions] + [q for l in self.longs for q in l.all_questions()]
 
 
 def _words(text: str) -> int:
@@ -197,11 +202,16 @@ def _types(d: dict, problems: list[str]) -> None:
             continue
         for q in s["questions"]:
             _qtypes(q, problems)
-    for r in d["long"].get("rounds", []) if isinstance(d["long"].get("rounds"), list) else []:
-        for q in r.get("questions", []) if isinstance(r, dict) else []:
-            _qtypes(q, problems)
-    if isinstance(d["long"].get("bonus"), dict):
-        _qtypes(d["long"]["bonus"], problems)
+    extra = d.get("extra_longs", [])
+    if not isinstance(extra, list) or not all(isinstance(x, dict) for x in extra):
+        problems.append("\"extra_longs\" must be a list of objects")
+        extra = []
+    for ld in [d["long"], *extra]:
+        for r in ld.get("rounds", []) if isinstance(ld.get("rounds"), list) else []:
+            for q in r.get("questions", []) if isinstance(r, dict) else []:
+                _qtypes(q, problems)
+        if isinstance(ld.get("bonus"), dict):
+            _qtypes(ld["bonus"], problems)
 
 
 def _qtypes(q, problems):
@@ -252,7 +262,17 @@ def parse_batch(raw: str) -> Batch:
                                     chosen_title_index=s.get("chosen_title_index", 0), hook_id=s.get("hook_id", "")))
     if not d.get("shorts"):
         problems.append("batch has no shorts")
-    ld = d.get("long") or {}
+    longs = [_parse_long(ld, problems) for ld in [d.get("long") or {}, *(d.get("extra_longs") or [])]]
+    ids = [l.id for l in longs if l]
+    if len(set(ids)) != len(ids):
+        problems.append("long video ids must be unique")
+    if problems:
+        raise BatchError(problems)
+    return Batch(week=d.get("week", ""), shorts=shorts, long=longs[0], report_md=d.get("report_md", ""),
+                 extra_longs=longs[1:])
+
+
+def _parse_long(ld: dict, problems: list[str]) -> LongItem | None:
     lid = ld.get("id", "long")
     rounds = []
     if len(ld.get("rounds", [])) != ROUNDS:
@@ -265,12 +285,11 @@ def parse_batch(raw: str) -> Batch:
     bonus = _question(ld.get("bonus") or {"id": f"{lid}_bonus"}, "mcq", problems)
     _titles(lid, ld.get("titles"), ld.get("chosen_title_index", 0), problems)
     _copy_checks(lid, [ld.get("description", ""), ld.get("first_comment", ""), *ld.get("titles", [])], problems)
-    if problems:
-        raise BatchError(problems)
-    long = LongItem(id=lid, episode=int(ld.get("episode", 1)), rounds=rounds, bonus=bonus,
+    if not ld.get("titles"):
+        return None
+    return LongItem(id=lid, episode=int(ld.get("episode", 1)), rounds=rounds, bonus=bonus,
                     titles=ld["titles"], description=ld.get("description", ""), first_comment=ld.get("first_comment", ""),
                     chosen_title_index=ld.get("chosen_title_index", 0), chapters=ld.get("chapters", []))
-    return Batch(week=d.get("week", ""), shorts=shorts, long=long, report_md=d.get("report_md", ""))
 
 
 def batch_from_obj(obj) -> Batch:

@@ -21,10 +21,10 @@ def fake_gen_factory(bad_title=False, dup_question=None, wrong_ids=()):
             return [{"id": i, "correct": i not in wrong_ids, "answer": "x", "source_url": "https://src.example/" + i,
                      "note": "" if i not in wrong_ids else "answer disputed"} for i in ids]
         if "Family Quiz Night" in prompt:
-            rounds = [{"name": n, "questions": [q("tmp", n=k) | {"question": f"Long {n} question number {k}?"} for k in range(7)]}
+            rounds = [{"name": n, "questions": [q("tmp", n=k) | {"question": f"Long {n} question number {k} call {state['calls']}?"} for k in range(7)]}
                       for n in generate.ROUND_NAMES]
-            return {"rounds": rounds, "bonus": [q("tmp", n=2) | {"question": "Bonus question one?"},
-                                                q("tmp", n=2) | {"question": "Bonus question two?"}],
+            return {"rounds": rounds, "bonus": [q("tmp", n=2) | {"question": f"Bonus question one {state['calls']}?"},
+                                                q("tmp", n=2) | {"question": f"Bonus question two {state['calls']}?"}],
                     "titles": ["Family Quiz Night #1", "Can You Beat Your Kids?", "Quiz Night"],
                     "description": "Family trivia quiz night.", "first_comment": "Your score?"}
         section = prompt.split("Write exactly these items")[1].split("Avoid these")[0]
@@ -179,3 +179,23 @@ def test_quota_error_names_the_exhausted_quota(monkeypatch):
     finally:
         gemini.requests.post = orig
     assert "SearchGroundingRequestsPerDay" in str(e.value)
+
+
+def test_batch_has_two_episodes_with_consecutive_numbers():
+    gen, _ = fake_gen_factory()
+    b = build(gen)
+    assert [l.episode for l in b.longs] == [1, 2]
+    assert len({l.id for l in b.longs}) == 2
+    q1 = {q.question for q in b.longs[0].all_questions()}
+    assert q1.isdisjoint({q.question for q in b.longs[1].all_questions()})
+    from fbc.store import plan_queue
+    q = plan_queue(b)
+    assert [e["id"] for e in q if e["kind"] == "long"] == [l.id for l in b.longs]
+
+
+def test_old_single_episode_batch_still_loads():
+    import json as _j
+    from fbc.models import parse_batch
+    from tests.conftest import make_batch
+    b = parse_batch(_j.dumps(make_batch()))
+    assert len(b.longs) == 1 and b.long is b.longs[0]

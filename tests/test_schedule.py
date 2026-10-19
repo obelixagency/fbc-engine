@@ -8,15 +8,15 @@ ET = ZoneInfo("America/New_York")
 
 def test_week_slots_across_dst():
     slots = schedule.week_slots("2026-W44")   # Mon Oct 26 .. Sun Nov 1 2026 (DST ends Nov 1)
-    assert len(slots) == 29
+    assert len(slots) == 30
     shorts = [t for k, t in slots if k == "short"]
     longs = [t for k, t in slots if k == "long"]
-    assert len(shorts) == 28 and len(longs) == 1
+    assert len(shorts) == 28 and len(longs) == 2
     local = [t.astimezone(ET) for t in shorts]
     assert {(t.hour, t.minute) for t in local} == {(7, 0), (12, 0), (16, 0), (20, 0)}
     assert len(set(shorts)) == 28
     assert local[-1].date().isoformat() == "2026-11-01"
-    assert longs[0].astimezone(ET).strftime("%a %H:%M") == "Sat 10:00"
+    assert longs[-1].astimezone(ET).strftime("%a %H:%M") == "Sat 10:00"
     assert local[-1].utcoffset() != local[0].utcoffset()   # DST really changed inside the week
 
 
@@ -42,3 +42,9 @@ def test_older_14_short_batch_still_plans_and_loads():
     b = batch_from_obj(make_batch())
     q = plan_queue(b)
     assert len([e for e in q if e["kind"] == "short"]) == 14 and len([e for e in q if e["kind"] == "long"]) == 1
+
+
+def test_two_long_episodes_a_week():
+    slots = schedule.week_slots("2026-W44")
+    longs = [t.astimezone(ET).strftime("%a %H:%M") for k, t in slots if k == "long"]
+    assert longs == ["Wed 10:00", "Sat 10:00"]

@@ -22,10 +22,10 @@ def _gh(*args: str) -> str:
 
 def plan_queue(batch: Batch) -> list[dict]:
     slots = week_slots(batch.week)
-    shorts = iter(batch.shorts)
+    shorts, longs = iter(batch.shorts), iter(batch.longs)
     q = []
     for kind, at in slots:
-        item = batch.long if kind == "long" else next(shorts, None)
+        item = next(longs, None) if kind == "long" else next(shorts, None)
         if item is None:      # an older batch with fewer Shorts than slots: leave the rest empty
             continue
         item_id = item.id
@@ -73,6 +73,17 @@ class ContentRepo:
 
     def load_batch(self, week: str) -> Batch:
         return parse_batch((self.path / self.batch_rel(week)).read_text())
+
+    def episode_count(self) -> int:
+        """Long episodes in every merged batch (1 per older batch, more once a week holds several)."""
+        n = 0
+        for week in self.merged_weeks():
+            try:
+                d = json.loads((self.path / "batches" / week / "batch.json").read_text())
+                n += 1 + len(d.get("extra_longs") or [])
+            except (OSError, ValueError):
+                n += 1
+        return n
 
     def merged_weeks(self) -> list[str]:
         d = self.path / "batches"
