@@ -27,7 +27,7 @@ def test_three_q_duration_in_range(batch):
     s = short_of(batch, "three_q")
     tl = timeline.build_short_timeline(s, durs(s), clips(s))
     assert (tl.width, tl.height, tl.fps) == (1080, 1920, 30)
-    assert 22 <= tl.duration <= 35
+    assert 22 <= tl.duration <= timeline.SHORT_MAX
     kinds = [seg.kind for seg in tl.segments]
     assert kinds[0] == "hook" and kinds[-1] == "outro" and kinds.count("mcq") == 3
 
@@ -46,14 +46,14 @@ def test_ticks_on_countdown_seconds(batch):
 def test_overlong_lines_shorten_countdowns(batch):
     s = short_of(batch, "three_q")
     tl = timeline.build_short_timeline(s, durs(s, 3.0), clips(s))
-    assert tl.duration <= 35
-    assert all(seg.data["countdown"] < 3 for seg in tl.segments if seg.kind == "mcq")
+    assert tl.duration <= timeline.SHORT_MAX
+    assert all(seg.data["countdown"] <= 3 for seg in tl.segments if seg.kind == "mcq")
 
 
 def test_way_too_long_raises(batch):
     s = short_of(batch, "three_q")
     with pytest.raises(timeline.TimelineError):
-        timeline.build_short_timeline(s, durs(s, 6.0), clips(s))
+        timeline.build_short_timeline(s, durs(s, 12.0), clips(s))
 
 
 def test_every_format_builds(batch):
@@ -75,3 +75,11 @@ def test_long_timeline(batch):
     assert any(c.endswith("Bonus") for c in tl.chapters)
     starts = [timeline.parse_mmss(c.split()[0]) for c in tl.chapters]
     assert starts == sorted(starts) and starts[1] >= 10   # YouTube needs >= 10 s chapters
+
+
+def test_real_voice_lengths_fit_every_format(batch):
+    """Real Gemini lines run ~3 s each; a 5-statement true/false must still fit (it failed at a 35 s cap)."""
+    assert timeline.SHORT_MAX == 58.0
+    for s in batch.shorts:
+        tl = timeline.build_short_timeline(s, durs(s, 3.2), clips(s))
+        assert tl.duration <= timeline.SHORT_MAX

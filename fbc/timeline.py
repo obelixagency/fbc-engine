@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from .models import LongItem, ShortItem
 
 
+from .config import LIMITS
+
+
 class TimelineError(RuntimeError):
     pass
 
@@ -41,7 +44,7 @@ class Timeline:
 OUTRO_TEXT = {"three_q": "Comment your score! 👇", "zoom_reveal": "Did you guess it? 👇",
               "riddle": "Did you solve it? 👇", "parents_vs_kids": "Who won at your house? 👇",
               "true_false": "Comment your score! 👇", "would_you_rather": "A or B? Vote below! 👇"}
-SHORT_MAX = 35.0
+SHORT_MAX = LIMITS["short_max_s"]   # under 60 s: fits Shorts, Reels and FB Reels
 MIN_SHORT = {"three_q": 22.0, "parents_vs_kids": 22.0, "true_false": 22.0,
              "zoom_reveal": 12.0, "riddle": 12.0, "would_you_rather": 12.0}
 COUNTDOWN = {"three_q": 3.0, "parents_vs_kids": 3.0, "true_false": 2.0, "zoom_reveal": 5.0, "riddle": 5.0}

@@ -21,7 +21,7 @@ def test_good_short(tmp_path):
 
 
 def test_too_long_short(tmp_path):
-    p = make(tmp_path / "long.mp4", 1080, 1920, 40)
+    p = make(tmp_path / "long.mp4", 1080, 1920, 62)
     assert any("duration" in x for x in qa.check_video(p, "short", {"voice": []}))
 
 

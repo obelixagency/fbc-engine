@@ -14,7 +14,7 @@ TZ_ET = "America/New_York"
 
 LIMITS = {
     "question_words": 12, "option_words": 3, "fact_words": 15, "title_chars": 59,
-    "short_min_s": 22.0, "short_max_s": 35.0, "long_min_s": 480.0, "long_max_s": 720.0,
+    "short_min_s": 22.0, "short_max_s": 58.0, "long_min_s": 480.0, "long_max_s": 720.0,
     "dedupe_days": 180, "clip_reuse_days": 30, "late_grace_h": 2.5,
 }
 
