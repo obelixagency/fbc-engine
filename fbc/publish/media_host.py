@@ -44,7 +44,7 @@ def push_public(repo: Path, path: Path, today: date, wait_s: int = 300) -> str:
 def prune_public(repo: Path, today: date, days: int = 14) -> int:
     cutoff = (today - timedelta(days=days)).strftime("%Y%m%d")
     removed = 0
-    for f in repo.glob("*.mp4"):
+    for f in [*repo.glob("*.mp4"), *repo.glob("*.png")]:
         if f.name[:8].isdigit() and f.name[:8] < cutoff:
             f.unlink()
             removed += 1

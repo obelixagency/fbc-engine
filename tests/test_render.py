@@ -65,3 +65,10 @@ def test_background_is_blurred_until_the_answer_is_revealed(tmp_path):
     assert f'id="bgb{run}"' in html
     fade = [a for a in actions if a["sel"] == f"#bgb{run}"]
     assert any(a["m"] == "to" and a["to"]["opacity"] == 0 and a["t"] == round(q1.data["reveal_at"], 3) for a in fade)
+
+
+def test_short_cover_html_uses_the_hook_and_format_label(tmp_path):
+    from fbc import render
+    html = render.short_cover_html("Only 3% of adults <get> this!", "three_q", "bg.jpg")
+    assert "ONLY 3% OF ADULTS &lt;GET&gt; THIS!" in html and "3 QUESTIONS" in html
+    assert 'data-width="1080" data-height="1920"' in html

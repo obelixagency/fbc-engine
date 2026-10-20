@@ -80,6 +80,11 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
     def fb():
         # Reels accept short vertical video only; the long episode goes out as a regular Page video.
         vid = meta.fb_reel(video, caps["social"]) if meta_["is_short"] else meta.fb_video(video, meta_["title"], caps["social"])
+        if meta_["is_short"] and meta_.get("cover_image") and meta_.get("thumbnails"):
+            try:
+                meta.fb_thumbnail(vid, meta_["thumbnails"][0])
+            except Exception as e:  # a cover never blocks the post
+                plats["facebook"]["note"] = _err(e)
         if meta_.get("first_comment"):
             try:
                 meta.fb_comment(vid, meta_["first_comment"])
@@ -91,7 +96,10 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         if media_repo is None:
             raise RuntimeError("media repo not available for the public video URL")
         url = media_host.push_public(media_repo, video, today)
-        mid = meta.ig_reel(url, caps["social"], thumb_offset_ms=meta_.get("cover_ms"))
+        cover = None
+        if meta_.get("cover_image") and meta_.get("thumbnails"):
+            cover = media_host.push_public(media_repo, meta_["thumbnails"][0], today)
+        mid = meta.ig_reel(url, caps["social"], thumb_offset_ms=meta_.get("cover_ms"), cover_url=cover)
         if meta_.get("first_comment"):
             try:
                 meta.ig_comment(mid, meta_["first_comment"])

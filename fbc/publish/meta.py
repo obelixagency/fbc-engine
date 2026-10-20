@@ -66,16 +66,26 @@ def _ig_wait(creation_id: str, token: str, tries: int = 60, wait_s: float = 5) -
     raise MetaError("Instagram container never finished processing")
 
 
-def ig_reel(public_url: str, caption: str, thumb_offset_ms: int | None = None) -> str:
+def ig_reel(public_url: str, caption: str, thumb_offset_ms: int | None = None, cover_url: str | None = None) -> str:
     ig_id, token = env("IG_USER_ID"), env("FB_PAGE_TOKEN")
     data = {"media_type": "REELS", "video_url": public_url, "caption": caption, "share_to_feed": "true",
             "access_token": token}
-    if thumb_offset_ms is not None:   # cover = this frame (the hook), never the revealed answer
+    if cover_url:                     # designed cover image (the hook), never the revealed answer
+        data["cover_url"] = cover_url
+    elif thumb_offset_ms is not None:
         data["thumb_offset"] = str(int(thumb_offset_ms))
     c = _check(requests.post(f"{GRAPH}/{ig_id}/media", data=data, timeout=60))
     _ig_wait(c["id"], token)
     return _check(requests.post(f"{GRAPH}/{ig_id}/media_publish", data={"creation_id": c["id"], "access_token": token},
                                 timeout=60))["id"]
+
+
+def fb_thumbnail(video_id: str, png: Path) -> None:
+    """Preferred thumbnail for a Page video/Reel."""
+    token = env("FB_PAGE_TOKEN")
+    with open(png, "rb") as f:
+        _check(requests.post(f"{GRAPH}/{video_id}/thumbnails", data={"is_preferred": "true", "access_token": token},
+                             files={"source": (png.name, f, "image/png")}, timeout=120))
 
 
 def fb_comment(object_id: str, text: str) -> str:

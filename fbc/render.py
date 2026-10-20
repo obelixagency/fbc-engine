@@ -257,6 +257,74 @@ img {{ position: absolute; left: 0; top: 0; width: 560px; height: 720px; object-
 </body></html>"""
 
 
+SHORT_LABEL = {"three_q": "3 QUESTIONS", "true_false": "TRUE OR FALSE", "riddle": "RIDDLE",
+               "zoom_reveal": "WHAT IS IT?", "parents_vs_kids": "PARENTS vs KIDS",
+               "would_you_rather": "WOULD YOU RATHER", "teaser": "FAMILY QUIZ NIGHT"}
+
+SHORT_COVER = """<!doctype html><html lang="en"><head><meta charset="UTF-8" />
+<style>
+@font-face {{ font-family: "Archivo Black"; src: url("assets/fonts/ArchivoBlack-400.woff2") format("woff2"); }}
+@font-face {{ font-family: "Archivo"; src: url("assets/fonts/Archivo-700.woff2") format("woff2"); font-weight: 700; }}
+body {{ margin: 0; background: #16133F; }}
+#root {{ position: relative; width: 100%; height: 100%; overflow: hidden; background: #16133F; }}
+.bg {{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }}
+.shade {{ position: absolute; inset: 0; background: linear-gradient(180deg, rgba(22,19,63,.55) 0%, rgba(22,19,63,.78) 40%,
+          rgba(22,19,63,.78) 60%, rgba(22,19,63,.55) 100%); }}
+.brand {{ position: absolute; top: 120px; left: 0; right: 0; text-align: center; font: 700 40px Archivo, sans-serif;
+          letter-spacing: .3em; color: #FFD23F; }}
+.q {{ position: absolute; right: 40px; top: 470px; font: 400 520px/1 "Archivo Black", sans-serif; color: #FF3E7F;
+      opacity: .22; }}
+.mid {{ position: absolute; left: 70px; right: 70px; top: 560px; height: 800px; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; gap: 40px; text-align: center; }}
+.pill {{ background: #FF3E7F; color: #fff; font: 700 48px Archivo, sans-serif; padding: 14px 40px; border-radius: 999px;
+         letter-spacing: .04em; }}
+.h {{ font: 400 {size}px/1.02 "Archivo Black", sans-serif; color: #FFD23F; text-shadow: 0 8px 30px rgba(0,0,0,.55); }}
+.s {{ font: 700 54px Archivo, sans-serif; color: #fff; }}
+.logo {{ position: absolute; left: 50%; bottom: 150px; margin-left: -60px; width: 120px; height: 120px; border-radius: 28px;
+         background: #FFD23F; color: #16133F; font: 400 90px/120px "Archivo Black", sans-serif; text-align: center; }}
+</style></head><body>
+<div id="root" data-composition-id="cover" data-start="0" data-width="1080" data-height="1920" data-duration="1">
+<img class="bg" src="assets/{image}" alt="" /><div class="shade"></div><div class="q">?</div>
+<div class="brand">FAMILY BRAIN CLASH</div>
+<div class="mid"><div class="pill">{label}</div><div class="h">{headline}</div><div class="s">Can you beat your kids?</div></div>
+<div class="logo">?</div></div>
+<script src="assets/gsap.min.js"></script>
+<script>window.__timelines["cover"] = gsap.timeline({{ paused: true }});</script>
+</body></html>"""
+
+
+def short_cover_html(hook: str, fmt: str, image: str) -> str:
+    import html as _html
+    head = _html.escape(hook.upper())
+    size = 118 if len(hook) <= 30 else 100 if len(hook) <= 48 else 84
+    return SHORT_COVER.format(image=_html.escape(image), label=SHORT_LABEL.get(fmt, "QUIZ"), headline=head, size=size)
+
+
+def render_short_cover(hook: str, fmt: str, background: Path, outdir: Path) -> Path:
+    """Designed 1080x1920 Shorts cover built from the hook (never shows an answer): blurred first clip, format
+    pill, big hook, brand. Used as the YouTube thumbnail and the Instagram/Facebook cover."""
+    proj = outdir / "cover"
+    (proj / "assets" / "fonts").mkdir(parents=True, exist_ok=True)
+    for f in (TEMPLATES / "fonts").glob("*.woff2"):
+        shutil.copy2(f, proj / "assets" / "fonts" / f.name)
+    shutil.copy2(TEMPLATES / "vendor" / "gsap.min.js", proj / "assets" / "gsap.min.js")
+    bg = proj / "assets" / "bg.jpg"
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(background), "-vf",
+                        "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920," + BLUR_VF,
+                        "-frames:v", "1", "-q:v", "3", str(bg)], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RenderError(f"cover background failed: {r.stderr[-300:]}")
+    (proj / "index.html").write_text(short_cover_html(hook, fmt, bg.name))
+    shots = proj / "shots"
+    r = _npx("snapshot", str(proj), "--at", "0.5", "--no-end", "-o", str(shots), "--describe", "false", timeout=600)
+    pngs = sorted(shots.glob("*.png"))
+    if r.returncode != 0 or not pngs:
+        raise RenderError(f"cover snapshot failed: {(r.stderr or r.stdout)[-500:]}")
+    dest = outdir / "cover.png"
+    shutil.copy2(pngs[0], dest)
+    return dest
+
+
 COVER_T = 0.9   # inside the hook: text is in, background still blurred, no answer on screen yet
 
 

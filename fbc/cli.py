@@ -209,6 +209,19 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
                                              exclude | set(used_ids))
             entry["teaser_asset"] = repo.upload_asset(entry["week"], t_out)
             used_ids += t_ids
+    else:
+        try:   # designed cover from the hook: the auto-picked frame can show the answer
+            first = clips[questions[0].id]
+            src = work / "clips" / first["name"]
+            bgimg = work / "cover_bg.jpg"
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", str(src), "-frames:v", "1", str(bgimg)]
+                           if src.suffix == ".mp4" else ["cp", str(src), str(bgimg)], check=True)
+            cover = render.render_short_cover(item.hook, item.format, bgimg, work / "cover")
+            named = cover.with_name(f"{entry['id']}_cover.png")
+            shutil.copy2(cover, named)
+            entry["thumbnails"] = [repo.upload_asset(entry["week"], named)]
+        except Exception as e:  # noqa: BLE001 — a missing cover never blocks the Short
+            safe("cover_failed", id=entry["id"], error_type=type(e).__name__)
     repo.add_clip_ids(used_ids, today)
     entry["status"] = "produced"
     return entry
@@ -290,6 +303,8 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
         if entry.get("teaser_asset"):
             meta["teaser"] = repo.download_asset(entry["week"], entry["teaser_asset"], dl)
+        if entry["kind"] == "short" and thumbs:
+            meta["cover_image"] = True       # designed cover rendered at production time
         if entry["kind"] == "short" and not thumbs:
             from .render import COVER_T, cover_frame
             try:   # YouTube/Instagram would otherwise auto-pick a frame, which can show the answer

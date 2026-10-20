@@ -162,7 +162,7 @@ def test_short_gets_the_hook_frame_as_cover_on_youtube_and_instagram(monkeypatch
     monkeypatch.setattr(meta, "fb_reel", lambda *a: "fb1")
     monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
     monkeypatch.setattr(publish.media_host, "push_public", lambda *a: "u")
-    monkeypatch.setattr(meta, "ig_reel", lambda url, cap, thumb_offset_ms=None: sent.setdefault("ig_ms", thumb_offset_ms) or "ig1")
+    monkeypatch.setattr(meta, "ig_reel", lambda url, cap, thumb_offset_ms=None, **k: sent.setdefault("ig_ms", thumb_offset_ms) or "ig1")
     monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
     m = dict(META, thumbnails=[tmp_path / "cover.png"], cover_ms=900)
     publish.publish_item(entry(), m, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
@@ -177,3 +177,21 @@ def test_cover_frame_is_taken_from_the_hook(tmp_path):
                     "-pix_fmt", "yuv420p", str(v)], check=True)
     png = render.cover_frame(v, tmp_path / "c.png")
     assert png.exists() and png.stat().st_size > 1000
+
+
+def test_short_cover_image_goes_to_instagram_as_cover_url_and_facebook_thumbnail(monkeypatch, tmp_path):
+    sent = {}
+    monkeypatch.setattr(youtube, "access_token", lambda: "t")
+    monkeypatch.setattr(youtube, "upload_video", lambda *a, **k: {"id": "yt1", "privacy": "public"})
+    monkeypatch.setattr(youtube, "set_thumbnail", lambda *a, **k: None)
+    monkeypatch.setattr(youtube, "add_comment", lambda *a, **k: "c")
+    monkeypatch.setattr(meta, "fb_reel", lambda *a: "fb1")
+    monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
+    monkeypatch.setattr(meta, "fb_thumbnail", lambda vid, png: sent.setdefault("fb", (vid, png.name)))
+    monkeypatch.setattr(publish.media_host, "push_public", lambda repo, p, today: f"https://pub/{p.name}")
+    monkeypatch.setattr(meta, "ig_reel", lambda url, cap, **k: sent.setdefault("ig", k) or "ig1")
+    monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
+    m = dict(META, thumbnails=[tmp_path / "s1_cover.png"], cover_image=True)
+    publish.publish_item(entry(), m, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert sent["ig"]["cover_url"] == "https://pub/s1_cover.png"
+    assert sent["fb"] == ("fb1", "s1_cover.png")
