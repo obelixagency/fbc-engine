@@ -24,7 +24,7 @@ from pathlib import Path
 
 from . import analytics as an
 from .audio import build_audio_request, make_sfx, synthesize
-from .config import CONTENT_REPO, LIMITS
+from .config import CONTENT_REPO, LIMITS, env
 from .dedupe import fingerprint
 from .errors import ResumeLater
 from .generate import build_batch
@@ -436,16 +436,58 @@ def refresh_covers(repo: ContentRepo) -> int:
     return n
 
 
+# ---------------------------------------------------------------- inspect
+def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
+    """Download the thumbnail each platform actually shows for a published item (private release asset)."""
+    import requests
+    from .publish import meta as m, youtube
+    e = next(x for x in repo.queue() if x["id"] == item_id)
+    p, out, saved = e["platforms"], WORK / "inspect" / item_id, []
+    out.mkdir(parents=True, exist_ok=True)
+    urls = {}
+    try:
+        h = {"Authorization": f"Bearer {youtube.access_token()}"}
+        th = requests.get(f"{youtube.API}/videos", params={"part": "snippet", "id": p["youtube"]["ref"]}, headers=h,
+                          timeout=30).json()["items"][0]["snippet"]["thumbnails"]
+        best = max(th.values(), key=lambda t: t.get("width", 0))
+        urls["youtube"] = best["url"]
+    except Exception as ex:  # noqa: BLE001
+        safe("inspect_failed", platform="youtube", error_type=type(ex).__name__)
+    token = env("FB_PAGE_TOKEN")
+    try:
+        d = requests.get(f"{m.GRAPH}/{p['instagram']['ref']}", params={"fields": "thumbnail_url", "access_token": token},
+                         timeout=30).json()
+        urls["instagram"] = d["thumbnail_url"]
+    except Exception as ex:  # noqa: BLE001
+        safe("inspect_failed", platform="instagram", error_type=type(ex).__name__)
+    try:
+        d = requests.get(f"{m.GRAPH}/{p['facebook']['ref']}/thumbnails",
+                         params={"fields": "uri,is_preferred", "access_token": token}, timeout=30).json()
+        pref = [t for t in d.get("data", []) if t.get("is_preferred")] or d.get("data", [])
+        urls["facebook"] = pref[0]["uri"]
+        safe("inspect_fb", count=len(d.get("data", [])), status=str(bool([t for t in d.get("data", []) if t.get("is_preferred")])))
+    except Exception as ex:  # noqa: BLE001
+        safe("inspect_failed", platform="facebook", error_type=type(ex).__name__)
+    for plat, url in urls.items():
+        f = out / f"{item_id}_shown_{plat}.jpg"
+        f.write_bytes(requests.get(url, timeout=60).content)
+        repo.upload_asset(e["week"], f)
+        saved.append(f)
+        safe("inspect_saved", platform=plat)
+    return saved
+
+
 # ---------------------------------------------------------------- main
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fbc")
     ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check",
-                                       "covers"])
+                                       "covers", "inspect"])
     ap.add_argument("--week")
     ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
     ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
     ap.add_argument("--horizon-hours", type=float, default=48)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--id", help="queue item id (inspect)")
     a = ap.parse_args(argv)
     if a.command == "auth-youtube":
         auth_youtube()
@@ -467,6 +509,8 @@ def main(argv=None) -> int:
             publish(repo, now, media, a.dry_run)
         elif a.command == "analytics":
             run_analytics(repo, now, a.dry_run)
+        elif a.command == "inspect":
+            inspect_covers(repo, a.id)
         elif a.command == "covers":
             refresh_covers(repo)
         elif a.command == "tick":
@@ -474,7 +518,7 @@ def main(argv=None) -> int:
             escalate(repo, now, a.dry_run)
             produce(repo, now, a.horizon_hours, a.dry_run)
             publish(repo, datetime.now(timezone.utc), media, a.dry_run)
-        if not a.dry_run and a.command not in ("remind", "generate"):
+        if not a.dry_run and a.command not in ("remind", "generate", "inspect"):
             repo.save_queue(repo.queue())
             repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
     except Exception as e:  # noqa: BLE001 — public logs: type only

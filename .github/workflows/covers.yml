@@ -1,6 +1,10 @@
-name: Set hook-frame covers on published Shorts (one-off fix)
+name: Covers (one-off fixes and inspection)
 on:
   workflow_dispatch:
+    inputs:
+      inspect_id:
+        description: "Queue item id to inspect (empty = set hook covers on published Shorts)"
+        required: false
 concurrency:
   group: covers
 permissions:
@@ -25,4 +29,5 @@ jobs:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-        run: python -m fbc.cli covers
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+        run: python -m fbc.cli ${{ inputs.inspect_id && format('inspect --id {0}', inputs.inspect_id) || 'covers' }}
