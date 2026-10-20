@@ -136,3 +136,15 @@ def test_refresh_covers_sets_hook_frame_on_published_shorts(repo, monkeypatch, t
     assert cli.refresh_covers(repo) == 1 and sent == ["YT1"]
     assert repo.queue()[0]["cover_set"] is True
     assert cli.refresh_covers(repo) == 0
+
+
+def test_daily_thumbnail_digest_lists_todays_youtube_shorts(repo):
+    pub = lambda i, t, yt: {"id": i, "kind": "short", "title": f"T {i}", "published_at": t, "status": "published",
+                            "platforms": {"youtube": {"status": "published", "ref": yt}}}
+    repo.save_queue([pub("s1", "2026-10-20T11:00:01+00:00", "AAA"), pub("s2", "2026-10-19T08:00:00+00:00", "OLD"),
+                     {"id": "l1", "kind": "long", "published_at": "2026-10-20T12:00:00+00:00", "status": "published",
+                      "platforms": {"youtube": {"status": "published", "ref": "LONG"}}}])
+    n = cli.daily_digest(repo, datetime(2026, 10, 20, 18, 0, tzinfo=timezone.utc))
+    title, body = repo.issues[0][-3], repo.issues[0][-1]
+    assert n == 1 and "2026-10-20" in title
+    assert "https://studio.youtube.com/video/AAA/edit" in body and "OLD" not in body and "LONG" not in body

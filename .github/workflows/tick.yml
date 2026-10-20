@@ -79,6 +79,11 @@ jobs:
               git -C content pull -q --rebase || true
               python -m fbc.cli analytics || echo "[fbc] analytics_failed {}"
             fi
+            # 21:00 Cairo: Issue with the day's Shorts so their first-frame cover can be picked in YouTube Studio
+            if [ "$(date -u +%H)" = "18" ] && [ ! -f "work/digest-$(date -u +%F)" ]; then
+              mkdir -p work && touch "work/digest-$(date -u +%F)"
+              python -m fbc.cli digest || echo "[fbc] digest_failed {}"
+            fi
             [ "$(date +%s)" -ge "$end" ] && break
             # new engine code on main: end this loop now so the next run (started below) uses it
             git fetch -q origin main && [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD)" ] && \

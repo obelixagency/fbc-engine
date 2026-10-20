@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from . import analytics as an
@@ -436,6 +436,26 @@ def refresh_covers(repo: ContentRepo) -> int:
     return n
 
 
+# ---------------------------------------------------------------- daily digest
+def daily_digest(repo: ContentRepo, now: datetime) -> int:
+    """One Issue a day listing the Shorts published on YouTube in the last 24 h, with Studio links, so the
+    first frame (the designed cover) can be picked as the thumbnail by hand (YouTube has no API for that)."""
+    since = now - timedelta(hours=24)
+    rows = []
+    for e in repo.queue():
+        yt = e.get("platforms", {}).get("youtube", {})
+        if e.get("kind") != "short" or yt.get("status") != "published" or not e.get("published_at"):
+            continue
+        if datetime.fromisoformat(e["published_at"]) >= since:
+            rows.append(f"- [ ] **{e.get('title', e['id'])}** — https://studio.youtube.com/video/{yt['ref']}/edit")
+    if rows:
+        repo.open_issue(f"Shorts thumbnails to set — {now:%Y-%m-%d}",
+                        "In YouTube Studio: open each Short → Thumbnail → pick the **first frame** (the cover). "
+                        "Tick each one when done, then close this Issue.\n\n" + "\n".join(rows))
+    safe("digest", count=len(rows))
+    return len(rows)
+
+
 # ---------------------------------------------------------------- inspect
 def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
     """Download the thumbnail each platform actually shows for a published item (private release asset)."""
@@ -481,7 +501,7 @@ def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fbc")
     ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check",
-                                       "covers", "inspect"])
+                                       "covers", "inspect", "digest"])
     ap.add_argument("--week")
     ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
     ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
@@ -509,6 +529,8 @@ def main(argv=None) -> int:
             publish(repo, now, media, a.dry_run)
         elif a.command == "analytics":
             run_analytics(repo, now, a.dry_run)
+        elif a.command == "digest":
+            daily_digest(repo, now)
         elif a.command == "inspect":
             inspect_covers(repo, a.id)
         elif a.command == "covers":
@@ -518,7 +540,7 @@ def main(argv=None) -> int:
             escalate(repo, now, a.dry_run)
             produce(repo, now, a.horizon_hours, a.dry_run)
             publish(repo, datetime.now(timezone.utc), media, a.dry_run)
-        if not a.dry_run and a.command not in ("remind", "generate", "inspect"):
+        if not a.dry_run and a.command not in ("remind", "generate", "inspect", "digest"):
             repo.save_queue(repo.queue())
             repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
     except Exception as e:  # noqa: BLE001 — public logs: type only
