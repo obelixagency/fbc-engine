@@ -325,6 +325,24 @@ def render_short_cover(hook: str, fmt: str, background: Path, outdir: Path) -> P
     return dest
 
 
+def prepend_cover(video: Path, png: Path, out: Path, seconds: float = 1.0) -> Path:
+    """Put the designed cover in as the Short's first second, so it can be picked as the YouTube thumbnail
+    straight from the video (frame picker) and is what shows before playback starts."""
+    fc = (f"[0:v]scale=1080:1920,setsar=1,fps=30,format=yuv420p[v0];[2:v]setsar=1,fps=30,format=yuv420p[v1];"
+          f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo[a0];"
+          f"[2:a]aformat=sample_rates=48000:channel_layouts=stereo[a1];"
+          f"[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]")
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "30", "-t", f"{seconds:.2f}",
+                        "-i", str(png), "-f", "lavfi", "-t", f"{seconds:.2f}", "-i",
+                        "anullsrc=r=48000:cl=stereo", "-i", str(video), "-filter_complex", fc, "-map", "[v]",
+                        "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RenderError(f"could not add the cover second: {r.stderr[-400:]}")
+    return out
+
+
 COVER_T = 0.9   # inside the hook: text is in, background still blurred, no answer on screen yet
 
 

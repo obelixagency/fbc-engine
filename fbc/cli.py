@@ -190,7 +190,6 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
     exclude = repo.recent_clip_ids(LIMITS["clip_reuse_days"], today)
     out, tl, clips, used_ids = _make_video(item, entry["kind"], work, repo, today, exclude)
     questions = item.all_questions() if isinstance(item, LongItem) else item.questions
-    entry["asset"] = repo.upload_asset(entry["week"], out)
     entry["duration"] = tl.duration
     entry["chapters"] = tl.chapters
     if isinstance(item, LongItem):
@@ -219,9 +218,14 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
             cover = render.render_short_cover(item.hook, item.format, bgimg, work / "cover")
             named = cover.with_name(f"{entry['id']}_cover.png")
             shutil.copy2(cover, named)
+            # the cover is also the Short's first second, so it can be picked as the thumbnail from the video
+            final = render.prepend_cover(out, named, work / f"{entry['id']}_final.mp4")
+            out = final.replace(out)
+            entry["duration"] = tl.duration + 1.0
             entry["thumbnails"] = [repo.upload_asset(entry["week"], named)]
         except Exception as e:  # noqa: BLE001 — a missing cover never blocks the Short
             safe("cover_failed", id=entry["id"], error_type=type(e).__name__)
+    entry["asset"] = repo.upload_asset(entry["week"], out)
     repo.add_clip_ids(used_ids, today)
     entry["status"] = "produced"
     return entry

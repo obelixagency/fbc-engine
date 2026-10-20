@@ -72,3 +72,23 @@ def test_short_cover_html_uses_the_hook_and_format_label(tmp_path):
     html = render.short_cover_html("Only 3% of adults <get> this!", "three_q", "bg.jpg")
     assert "ONLY 3% OF ADULTS &lt;GET&gt; THIS!" in html and "3 QUESTIONS" in html
     assert 'data-width="1080" data-height="1920"' in html
+
+
+def test_prepend_cover_makes_the_designed_cover_the_first_second(tmp_path):
+    import subprocess as sp
+    from fbc import render
+    v, png = tmp_path / "v.mp4", tmp_path / "c.png"
+    sp.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=1080x1920:rate=30:duration=3",
+            "-f", "lavfi", "-i", "sine=f=440:d=3:sample_rate=48000", "-shortest", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", str(v)], check=True)
+    sp.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0xFFD23F:s=1080x1920", "-frames:v", "1",
+            str(png)], check=True)
+    out = render.prepend_cover(v, png, tmp_path / "out.mp4", seconds=1.0)
+    dur = float(sp.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(out)],
+                       capture_output=True, text=True).stdout)
+    assert 3.9 < dur < 4.2
+    first = tmp_path / "f.png"
+    sp.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", str(out), "-frames:v", "1", "-vf", "scale=1:1",
+            "-f", "rawvideo", "-pix_fmt", "rgb24", str(first)], check=True)
+    r, g, b = first.read_bytes()[:3]
+    assert r > 200 and g > 170 and b < 120          # the yellow cover, not the clip
