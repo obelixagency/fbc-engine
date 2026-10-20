@@ -80,6 +80,9 @@ jobs:
               python -m fbc.cli analytics || echo "[fbc] analytics_failed {}"
             fi
             [ "$(date +%s)" -ge "$end" ] && break
+            # new engine code on main: end this loop now so the next run (started below) uses it
+            git fetch -q origin main && [ "$(git rev-parse origin/main)" != "$(git rev-parse HEAD)" ] && \
+              { echo "[fbc] new_code {}"; break; }
             sleep $(( 600 - $(date +%s) % 600 ))
           done
       - name: Start the next loop
