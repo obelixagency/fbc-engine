@@ -119,3 +119,20 @@ def test_any_generate_failure_is_reported_and_repeats_become_comments(tmp_path, 
             cli.cmd_generate(r, "2026-W45", dry_run=True, today=NOW.date())
     assert calls[1][:2] == ("issue", "create") and "INVALID_ARGUMENT" in calls[1][-1]
     assert calls[3][:3] == ("issue", "comment", "7")
+
+
+def test_refresh_covers_sets_hook_frame_on_published_shorts(repo, monkeypatch, tmp_path):
+    from fbc.publish import youtube
+    import fbc.render as render
+    repo.save_queue([{"id": "s1", "kind": "short", "week": "2026-W43", "asset": "s1.mp4",
+                      "platforms": {"youtube": {"status": "published", "ref": "YT1"}}},
+                     {"id": "s2", "kind": "short", "week": "2026-W43", "asset": "s2.mp4",
+                      "platforms": {"youtube": {"status": "pending", "ref": None}}}])
+    monkeypatch.setattr(youtube, "access_token", lambda: "t")
+    sent = []
+    monkeypatch.setattr(youtube, "set_thumbnail", lambda vid, png, token=None: sent.append(vid))
+    monkeypatch.setattr(repo, "download_asset", lambda week, name, dest: tmp_path / name)
+    monkeypatch.setattr(render, "cover_frame", lambda v, png, t=0.9: png)
+    assert cli.refresh_covers(repo) == 1 and sent == ["YT1"]
+    assert repo.queue()[0]["cover_set"] is True
+    assert cli.refresh_covers(repo) == 0

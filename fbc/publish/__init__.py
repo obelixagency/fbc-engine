@@ -40,7 +40,7 @@ def _teaser_fb(path: Path, caption: str, link: str) -> str:
 def _teaser_ig(path: Path, caption: str, media_repo: Path | None, today: date) -> str:
     if media_repo is None:
         raise RuntimeError("media repo not available for the public video URL")
-    return meta.ig_reel(media_host.push_public(media_repo, path, today), caption)
+    return meta.ig_reel(media_host.push_public(media_repo, path, today), caption, thumb_offset_ms=900)
 
 
 def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None, today: date) -> dict:
@@ -91,7 +91,7 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         if media_repo is None:
             raise RuntimeError("media repo not available for the public video URL")
         url = media_host.push_public(media_repo, video, today)
-        mid = meta.ig_reel(url, caps["social"])
+        mid = meta.ig_reel(url, caps["social"], thumb_offset_ms=meta_.get("cover_ms"))
         if meta_.get("first_comment"):
             try:
                 meta.ig_comment(mid, meta_["first_comment"])

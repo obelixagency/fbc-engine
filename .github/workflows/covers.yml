@@ -1,0 +1,28 @@
+name: Set hook-frame covers on published Shorts (one-off fix)
+on:
+  workflow_dispatch:
+concurrency:
+  group: covers
+permissions:
+  contents: read
+jobs:
+  covers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+      - run: pip install -e .
+      - uses: actions/checkout@v4
+        with:
+          repository: obelixagency/fbc-content
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: content
+      - env:
+          GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python -m fbc.cli covers

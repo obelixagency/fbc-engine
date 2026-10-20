@@ -78,7 +78,7 @@ def test_one_platform_failure_does_not_block_others(monkeypatch, tmp_path):
     monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
     monkeypatch.setattr(publish.media_host, "push_public", lambda *a: "https://pub/v.mp4")
 
-    def ig_fail(*a):
+    def ig_fail(*a, **k):
         raise meta.MetaError("token expired")
     monkeypatch.setattr(meta, "ig_reel", ig_fail)
     e = publish.publish_item(entry(), META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
@@ -90,7 +90,7 @@ def test_one_platform_failure_does_not_block_others(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(youtube, "upload_video", lambda *a, **k: calls.append("yt") or {"id": "x"})
     monkeypatch.setattr(meta, "fb_reel", lambda *a: calls.append("fb") or "x")
-    monkeypatch.setattr(meta, "ig_reel", lambda *a: calls.append("ig") or "ig1")
+    monkeypatch.setattr(meta, "ig_reel", lambda *a, **k: calls.append("ig") or "ig1")
     monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
     e = publish.publish_item(e, META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
     assert calls == ["ig"] and e["status"] == "published"
@@ -103,7 +103,7 @@ def test_private_upload_is_noted(monkeypatch, tmp_path):
     monkeypatch.setattr(meta, "fb_reel", lambda *a: "fb1")
     monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
     monkeypatch.setattr(publish.media_host, "push_public", lambda *a: "u")
-    monkeypatch.setattr(meta, "ig_reel", lambda *a: "ig1")
+    monkeypatch.setattr(meta, "ig_reel", lambda *a, **k: "ig1")
     monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
     e = publish.publish_item(entry(), META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
     assert "private_pending_audit" in e["platforms"]["youtube"]["note"]
@@ -126,7 +126,7 @@ def _long_mocks(monkeypatch, sent, yt_ok=True):
     monkeypatch.setattr(meta, "fb_video", lambda *a: sent.append(("fb_full",)) or "fbv")
     monkeypatch.setattr(meta, "fb_comment", lambda vid, text: sent.append(("fbc", text)) or "c")
     monkeypatch.setattr(publish.media_host, "push_public", lambda repo, path, today: sent.append(("pub", path.name)) or "https://pub/t.mp4")
-    monkeypatch.setattr(meta, "ig_reel", lambda url, cap: sent.append(("ig", cap)) or "ig1")
+    monkeypatch.setattr(meta, "ig_reel", lambda url, cap, **k: sent.append(("ig", cap)) or "ig1")
     monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
 
 
@@ -150,3 +150,30 @@ def test_teaser_waits_for_the_youtube_link(monkeypatch, tmp_path):
     e = publish.publish_item(entry(), m, tmp_path / "long.mp4", tmp_path, date(2026, 10, 24))
     assert not [s for s in sent if s[0] in ("fb", "ig")]
     assert e["platforms"]["facebook"]["status"] == "pending" and e["platforms"]["instagram"]["status"] == "pending"
+
+
+def test_short_gets_the_hook_frame_as_cover_on_youtube_and_instagram(monkeypatch, tmp_path):
+    """Auto-picked Shorts thumbnails sometimes show the revealed answer; use the hook frame instead."""
+    sent = {}
+    monkeypatch.setattr(youtube, "access_token", lambda: "t")
+    monkeypatch.setattr(youtube, "upload_video", lambda *a, **k: {"id": "yt1", "privacy": "public"})
+    monkeypatch.setattr(youtube, "set_thumbnail", lambda vid, png, token=None: sent.setdefault("thumb", png.name))
+    monkeypatch.setattr(youtube, "add_comment", lambda *a, **k: "c")
+    monkeypatch.setattr(meta, "fb_reel", lambda *a: "fb1")
+    monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
+    monkeypatch.setattr(publish.media_host, "push_public", lambda *a: "u")
+    monkeypatch.setattr(meta, "ig_reel", lambda url, cap, thumb_offset_ms=None: sent.setdefault("ig_ms", thumb_offset_ms) or "ig1")
+    monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
+    m = dict(META, thumbnails=[tmp_path / "cover.png"], cover_ms=900)
+    publish.publish_item(entry(), m, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert sent["thumb"] == "cover.png" and sent["ig_ms"] == 900
+
+
+def test_cover_frame_is_taken_from_the_hook(tmp_path):
+    import subprocess
+    from fbc import render
+    v = tmp_path / "v.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=1080x1920:rate=30:duration=3",
+                    "-pix_fmt", "yuv420p", str(v)], check=True)
+    png = render.cover_frame(v, tmp_path / "c.png")
+    assert png.exists() and png.stat().st_size > 1000

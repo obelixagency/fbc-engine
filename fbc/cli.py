@@ -290,6 +290,13 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
         if entry.get("teaser_asset"):
             meta["teaser"] = repo.download_asset(entry["week"], entry["teaser_asset"], dl)
+        if entry["kind"] == "short" and not thumbs:
+            from .render import COVER_T, cover_frame
+            try:   # YouTube/Instagram would otherwise auto-pick a frame, which can show the answer
+                meta["thumbnails"] = [cover_frame(video, dl / f"{entry['id']}_cover.png")]
+                meta["cover_ms"] = int(COVER_T * 1000)
+            except Exception as e:  # noqa: BLE001 — a missing cover never blocks publishing
+                safe("cover_failed", id=entry["id"], error_type=type(e).__name__)
         from . import publish as _pub
         _pub.publish_item(entry, meta, video, media_repo, now.date())
         _warn_if_youtube_private(repo, entry)
@@ -390,10 +397,31 @@ def auth_youtube() -> None:
         print("\nYT_REFRESH_TOKEN (paste it into GitHub Secrets, then clear this screen):\n" + token)
 
 
+# ---------------------------------------------------------------- covers
+def refresh_covers(repo: ContentRepo) -> int:
+    """Set the hook-frame cover on Shorts already on YouTube (they were published with an auto-picked frame)."""
+    from .publish import youtube
+    from .render import cover_frame
+    token, n, queue = youtube.access_token(), 0, repo.queue()
+    for e in queue:
+        yt = e.get("platforms", {}).get("youtube", {})
+        if e.get("kind") != "short" or yt.get("status") != "published" or e.get("cover_set"):
+            continue
+        dl = WORK / "dl" / e["id"]
+        video = repo.download_asset(e["week"], e["asset"], dl)
+        youtube.set_thumbnail(yt["ref"], cover_frame(video, dl / "cover.png"), token=token)
+        e["cover_set"] = True
+        n += 1
+        safe("cover_set", id=e["id"])
+        repo.save_queue(queue)
+    return n
+
+
 # ---------------------------------------------------------------- main
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fbc")
-    ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check"])
+    ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check",
+                                       "covers"])
     ap.add_argument("--week")
     ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
     ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
@@ -420,6 +448,8 @@ def main(argv=None) -> int:
             publish(repo, now, media, a.dry_run)
         elif a.command == "analytics":
             run_analytics(repo, now, a.dry_run)
+        elif a.command == "covers":
+            refresh_covers(repo)
         elif a.command == "tick":
             publish(repo, now, media, a.dry_run)      # publishing first: a long render never delays a due post
             escalate(repo, now, a.dry_run)

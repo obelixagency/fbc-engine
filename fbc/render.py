@@ -257,6 +257,18 @@ img {{ position: absolute; left: 0; top: 0; width: 560px; height: 720px; object-
 </body></html>"""
 
 
+COVER_T = 0.9   # inside the hook: text is in, background still blurred, no answer on screen yet
+
+
+def cover_frame(video: Path, png: Path, t: float = COVER_T) -> Path:
+    """Shorts cover: a frame from the hook, so the auto-picked thumbnail can never show the answer."""
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{t:.2f}", "-i", str(video), "-frames:v", "1",
+                        str(png)], capture_output=True, text=True)
+    if r.returncode != 0 or not png.exists():
+        raise RenderError(f"could not grab the cover frame: {r.stderr[-300:]}")
+    return png
+
+
 def render_thumbnails(headlines: list[str], images: list[Path], episode: int, outdir: Path) -> list[Path]:
     """Three 1280x720 PNG variants for YouTube Test & Compare (spec §6.4)."""
     outs = []
