@@ -92,3 +92,19 @@ def test_prepend_cover_makes_the_designed_cover_the_first_second(tmp_path):
             "-f", "rawvideo", "-pix_fmt", "rgb24", str(first)], check=True)
     r, g, b = first.read_bytes()[:3]
     assert r > 200 and g > 170 and b < 120          # the yellow cover, not the clip
+
+
+def test_scene_and_background_visibility_is_driven_by_the_timeline(tmp_path):
+    """On GitHub's browser the hook scene sometimes stayed on screen over question 1, so every scene and
+    background run is shown/hidden explicitly by the GSAP timeline, not only by clip timing."""
+    from fbc import render
+    proj, tl = build(tmp_path)
+    bgs = render._backgrounds(tl)
+    actions = render.build_actions(tl, bgs)
+    vis = [a for a in actions if a["m"] == "set" and "autoAlpha" in a["to"]]
+    hook_end = round(tl.segments[0].end, 3)
+    assert {"m": "set", "sel": "#sc0", "t": hook_end, "to": {"autoAlpha": 0}} in vis
+    s1 = tl.segments[1]
+    assert {"m": "set", "sel": "#sc1", "t": 0, "to": {"autoAlpha": 0}} in vis
+    assert {"m": "set", "sel": "#sc1", "t": round(s1.start, 3), "to": {"autoAlpha": 1}} in vis
+    assert any(a["sel"] == "#bgw1" and a["to"] == {"autoAlpha": 0} and a["t"] == 0 for a in vis)

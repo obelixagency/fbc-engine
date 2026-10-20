@@ -142,6 +142,17 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
                 add("to", f"{p}-o{k}", rv, {"opacity": 0.45, "duration": 0.25})
         add("fromTo", f"{p}-rv", rv + 0.1, {"y": 0, "opacity": 1, "duration": 0.35, "ease": "back.out(1.8)"},
             {"y": 40, "opacity": 0})
+    # Explicit visibility: never rely only on clip timing (GitHub's browser once left the hook over question 1).
+    def visible(sel: str, start: float, end: float, last: bool) -> None:
+        if start > 0:
+            add("set", sel, 0, {"autoAlpha": 0})
+            add("set", sel, start, {"autoAlpha": 1})
+        if not last:
+            add("set", sel, end, {"autoAlpha": 0})
+    for i, seg in enumerate(tl.segments):
+        visible(f"#sc{i}", seg.start, seg.end, i == len(tl.segments) - 1)
+    for i, bg in enumerate(backgrounds):
+        visible(f"#bgw{i}", bg["start"], bg["start"] + bg["duration"], i == len(backgrounds) - 1)
     return A
 
 
