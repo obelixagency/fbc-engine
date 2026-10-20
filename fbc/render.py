@@ -251,18 +251,35 @@ THUMB = """<!doctype html><html lang="en"><head><meta charset="UTF-8" />
 @font-face {{ font-family: "Archivo"; src: url("assets/fonts/Archivo-700.woff2") format("woff2"); font-weight: 700; }}
 body {{ margin: 0; background: #16133F; }}
 #root {{ position: relative; width: 100%; height: 100%; overflow: hidden; background: #16133F; }}
-img {{ position: absolute; left: 0; top: 0; width: 560px; height: 720px; object-fit: cover; }}
-.txt {{ position: absolute; left: 608px; right: 48px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; }}
-.pill {{ align-self: flex-start; background: #FF3E7F; color: #fff; font: 700 30px Archivo, sans-serif; padding: 8px 22px; border-radius: 999px; }}
-.h {{ font: 400 {size}px/0.98 "Archivo Black", sans-serif; color: #FFD23F; }}
-.s {{ font: 700 36px Archivo, sans-serif; color: #fff; }}
-.q {{ position: absolute; right: 26px; top: -30px; font: 400 300px/1 "Archivo Black", sans-serif; color: #FF3E7F; opacity: .9; }}
-.logo {{ position: absolute; left: 24px; bottom: 24px; width: 72px; height: 72px; border-radius: 16px; background: #FFD23F; color: #16133F; font: 400 54px/72px "Archivo Black", sans-serif; text-align: center; }}
+.photo {{ position: absolute; right: 0; top: 0; width: 820px; height: 720px; object-fit: cover; object-position: {focus};
+          filter: saturate(1.25) contrast(1.08); }}
+.fade {{ position: absolute; inset: 0; background: linear-gradient(90deg, #16133F 0%, #16133F 36%, rgba(22,19,63,.85) 46%,
+         rgba(22,19,63,0) 64%); }}
+.glow {{ position: absolute; left: -120px; top: -120px; width: 620px; height: 620px; border-radius: 50%;
+         background: radial-gradient(circle, rgba(255,62,127,.35), rgba(255,62,127,0) 70%); }}
+.frame {{ position: absolute; inset: 0; border: 10px solid #FFD23F; }}
+.txt {{ position: absolute; left: 52px; top: 0; bottom: 0; width: 600px; display: flex; flex-direction: column;
+        justify-content: center; gap: 18px; }}
+.pill {{ align-self: flex-start; background: #FF3E7F; color: #fff; font: 700 30px Archivo, sans-serif; padding: 8px 24px;
+         border-radius: 999px; letter-spacing: .04em; box-shadow: 0 6px 0 #B0124A; }}
+.h {{ font: 400 {size}px/0.96 "Archivo Black", sans-serif; color: #FFD23F; -webkit-text-stroke: 6px #0B0920;
+      paint-order: stroke fill; text-shadow: 0 10px 0 #0B0920; }}
+.score {{ align-self: flex-start; display: flex; align-items: center; gap: 16px; margin-top: 6px; }}
+.badge {{ background: #fff; color: #16133F; font: 400 54px/1 "Archivo Black", sans-serif; padding: 10px 22px;
+          border-radius: 18px; transform: rotate(-4deg); box-shadow: 0 8px 0 #0B0920; }}
+.badge b {{ color: #2EE59D; -webkit-text-stroke: 2px #0B0920; paint-order: stroke fill; }}
+.s {{ font: 700 32px Archivo, sans-serif; color: #fff; text-shadow: 0 3px 0 #0B0920; }}
+.q {{ position: absolute; right: 40px; top: 30px; width: 150px; height: 150px; border-radius: 50%; background: #FF3E7F;
+      color: #fff; font: 400 110px/150px "Archivo Black", sans-serif; text-align: center; transform: rotate(12deg);
+      box-shadow: 0 10px 0 #B0124A; border: 6px solid #fff; }}
+.brand {{ position: absolute; right: 34px; bottom: 30px; background: #FFD23F; color: #16133F; font: 400 26px/1 "Archivo Black",
+          sans-serif; padding: 10px 16px; border-radius: 12px; letter-spacing: .02em; }}
 </style></head><body>
 <div id="root" data-composition-id="thumb" data-start="0" data-width="1280" data-height="720" data-duration="1">
-<img src="assets/{image}" alt="" /><div class="q">?</div>
-<div class="txt"><div class="pill">FAMILY QUIZ NIGHT #{episode}</div><div class="h">{headline}</div><div class="s">Can you beat your kids?</div></div>
-<div class="logo">?</div></div>
+<img class="photo" src="assets/{image}" alt="" /><div class="fade"></div><div class="glow"></div>
+<div class="txt"><div class="pill">FAMILY QUIZ NIGHT #{episode}</div><div class="h">{headline}</div>
+<div class="score"><div class="badge"><b>30</b>/30?</div><div class="s">Play along<br/>with your family!</div></div></div>
+<div class="q">?</div><div class="brand">FAMILY BRAIN CLASH</div><div class="frame"></div></div>
 <script src="assets/gsap.min.js"></script>
 <script>window.__timelines["thumb"] = gsap.timeline({{ paused: true }});</script>
 </body></html>"""
@@ -376,8 +393,10 @@ def render_thumbnails(headlines: list[str], images: list[Path], episode: int, ou
             shutil.copy2(f, proj / "assets" / "fonts" / f.name)
         shutil.copy2(image, proj / "assets" / image.name)
         shutil.copy2(TEMPLATES / "vendor" / "gsap.min.js", proj / "assets" / "gsap.min.js")
-        size = 92 if len(headline) <= 22 else 72
-        html = THUMB.format(image=image.name, episode=episode, headline=headline.upper(), size=size)
+        import html as _html
+        size = 96 if len(headline) <= 18 else 84 if len(headline) <= 26 else 70
+        html = THUMB.format(image=_html.escape(image.name), episode=episode, headline=_html.escape(headline.upper()),
+                            size=size, focus="60% 30%")
         (proj / "index.html").write_text(html)
         shots = proj / "shots"
         r = _npx("snapshot", str(proj), "--at", "0.5", "--no-end", "-o", str(shots), "--describe", "false", timeout=600)

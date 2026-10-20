@@ -194,7 +194,16 @@ def produce_entry(entry: dict, batch: Batch, repo: ContentRepo, today: date) -> 
     entry["chapters"] = tl.chapters
     if isinstance(item, LongItem):
         frames = []
+        try:   # expressive free stock photos make the episode thumbnails clickable
+            from . import pexels
+            for k, ph in enumerate(pexels.thumb_photos(3, exclude | set(used_ids), seed=item.episode)):
+                frames.append(pexels.download(ph, work / f"thumbphoto{k}.jpg"))
+                used_ids.append(ph.pexels_id)
+        except Exception as e:  # noqa: BLE001 — fall back to frames from the episode's own clips
+            safe("thumb_photo_failed", id=entry["id"], error_type=type(e).__name__)
         for k, q in enumerate(questions[::10][:3]):
+            if len(frames) >= 3:
+                break
             src = work / "clips" / clips[q.id]["name"]
             img = work / f"thumbsrc{k}.jpg"
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", str(src), "-frames:v", "1", str(img)]
@@ -456,6 +465,25 @@ def daily_digest(repo: ContentRepo, now: datetime) -> int:
     return len(rows)
 
 
+# ---------------------------------------------------------------- thumbnail preview
+def thumb_preview(repo: ContentRepo, week: str) -> list[Path]:
+    """Render the episode thumbnails for a merged batch's long videos (preview assets, nothing is published)."""
+    from . import pexels, render
+    batch, out = repo.load_batch(week), WORK / "thumbpreview"
+    saved = []
+    for lv in batch.longs:
+        photos = [pexels.download(ph, out / lv.id / f"p{k}.jpg")
+                  for k, ph in enumerate(pexels.thumb_photos(3, set(), seed=lv.episode))]
+        heads = [t.split(":")[-1].strip() for t in lv.titles][:3]
+        for k, png in enumerate(render.render_thumbnails(heads, photos, lv.episode, out / lv.id / "thumbs")):
+            named = png.with_name(f"{lv.id}_thumb_preview_{k}.png")
+            png.replace(named)
+            repo.upload_asset(week, named)
+            saved.append(named)
+    safe("thumb_preview", count=len(saved))
+    return saved
+
+
 # ---------------------------------------------------------------- inspect
 def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
     """Download the thumbnail each platform actually shows for a published item (private release asset)."""
@@ -501,7 +529,7 @@ def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fbc")
     ap.add_argument("command", choices=["generate", "produce", "publish", "tick", "analytics", "remind", "auth-youtube", "check",
-                                       "covers", "inspect", "digest"])
+                                       "covers", "inspect", "digest", "thumb-preview"])
     ap.add_argument("--week")
     ap.add_argument("--content", default="content", help="path of the fbc-content checkout")
     ap.add_argument("--media", default="media", help="path of the fbc-media checkout")
@@ -529,6 +557,8 @@ def main(argv=None) -> int:
             publish(repo, now, media, a.dry_run)
         elif a.command == "analytics":
             run_analytics(repo, now, a.dry_run)
+        elif a.command == "thumb-preview":
+            thumb_preview(repo, a.week)
         elif a.command == "digest":
             daily_digest(repo, now)
         elif a.command == "inspect":
@@ -540,7 +570,7 @@ def main(argv=None) -> int:
             escalate(repo, now, a.dry_run)
             produce(repo, now, a.horizon_hours, a.dry_run)
             publish(repo, datetime.now(timezone.utc), media, a.dry_run)
-        if not a.dry_run and a.command not in ("remind", "generate", "inspect", "digest"):
+        if not a.dry_run and a.command not in ("remind", "generate", "inspect", "digest", "thumb-preview"):
             repo.save_queue(repo.queue())
             repo.commit_and_push(f"{a.command}: {now:%Y-%m-%d %H:%M}")
     except Exception as e:  # noqa: BLE001 — public logs: type only

@@ -1,0 +1,37 @@
+name: Thumbnail preview (renders episode thumbnails, publishes nothing)
+on:
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Merged batch week, e.g. 2026-W43"
+        required: true
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/hyperframes
+          key: hf-0.8.170-${{ runner.os }}
+      - run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+      - run: pip install -e .
+      - run: npx -y hyperframes@0.8.170 browser ensure
+      - uses: actions/checkout@v4
+        with:
+          repository: obelixagency/fbc-content
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: content
+      - env:
+          GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: python -m fbc.cli thumb-preview --week ${{ inputs.week }}

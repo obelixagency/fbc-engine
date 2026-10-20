@@ -89,6 +89,24 @@ def find_clip(query: str, orientation: str, exclude_ids: set[int], subject_requi
     raise NoVisual(query)
 
 
+# Expressive people sell a quiz thumbnail: surprise, laughter, thinking faces (free Pexels photos).
+THUMB_QUERIES = ["surprised family watching tv", "shocked child face", "family laughing game night",
+                 "surprised woman hands on face", "excited kids cheering", "confused man thinking"]
+
+
+def thumb_photos(n: int, exclude_ids: set[int], seed: int = 0) -> list[Clip]:
+    """n landscape photos of expressive people for the long-video thumbnails (different query each)."""
+    picks: list[Clip] = []
+    for k in range(len(THUMB_QUERIES)):
+        if len(picks) == n:
+            break
+        clip = _photo(THUMB_QUERIES[(seed + k) % len(THUMB_QUERIES)], "landscape",
+                      exclude_ids | {c.pexels_id for c in picks})
+        if clip:
+            picks.append(clip)
+    return picks
+
+
 def download(clip: Clip, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     with requests.get(clip.url, stream=True, timeout=120) as r:
