@@ -172,7 +172,7 @@ def _make_video(item, kind: str, work: Path, repo: ContentRepo, today: date, exc
         assets[name] = work / "sfx" / name
     project = render.write_project(tl, durations, assets, work / "project", kind)
     out = work / f"{item.id}.mp4"
-    render.render_mp4(project, out)
+    render.render_mp4(project, out, timeout=3600 if portrait else 4 * 3600)   # an episode renders on its own job
     problems = qa.check_video(out, kind, json.loads((project / "qa.json").read_text()))
     if problems:
         raise RuntimeError("QA failed: " + "; ".join(problems))
@@ -244,22 +244,45 @@ MAX_PRODUCE_ATTEMPTS = 3
 PRODUCE_BUDGET_S = 40 * 60   # stop starting new renders after 40 min so the next tick can publish on time
 
 
-def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, producer=produce_entry) -> int:
+CLAIM_H = 5   # a render claimed longer ago than this is treated as abandoned (its job died)
+
+
+def _store_entry(repo: ContentRepo, entry: dict, message: str) -> None:
+    """Write back ONE entry onto the freshest queue: another job may have published other items meanwhile,
+    so a whole-queue snapshot taken before a long render must never be saved over them."""
+    repo.sync()
+    queue = repo.queue()
+    for i, e in enumerate(queue):
+        if e["id"] == entry["id"]:
+            queue[i] = entry
+            break
+    repo.save_queue(queue)
+    repo.commit_and_push(message)
+
+
+def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, producer=produce_entry,
+            kinds: set[str] | None = None) -> int:
     import time as _time
     started = _time.monotonic()
     today = now.date()
     intake(repo, today, now)
-    queue = repo.queue()
     batches: dict[str, Batch] = {}
     done = 0
-    for entry in to_produce(queue, now, horizon_h):
+    for entry in to_produce(repo.queue(), now, horizon_h):
+        if kinds and entry["kind"] not in kinds:
+            continue
+        claimed = entry.get("producing_since")
+        if claimed and datetime.fromisoformat(claimed) > datetime.now(timezone.utc) - timedelta(hours=CLAIM_H):
+            continue                          # another job is rendering it right now
         if dry_run:
             safe("would_produce", id=entry["id"], kind=entry["kind"])
             done += 1
             continue
-        if _time.monotonic() - started > PRODUCE_BUDGET_S:
+        if kinds != {"long"} and _time.monotonic() - started > PRODUCE_BUDGET_S:
             safe("produce_budget_stop", count=done)
             break
+        entry["producing_since"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        _store_entry(repo, entry, f"claim: {entry['id']}")
         try:
             if entry["week"] not in batches:
                 batches[entry["week"]] = repo.load_batch(entry["week"])
@@ -269,18 +292,19 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
             safe("produced", id=entry["id"], kind=entry["kind"])
         except ResumeLater:
             safe("quota_stop", id=entry["id"])
+            entry.pop("producing_since", None)
+            _store_entry(repo, entry, f"release: {entry['id']}")
             break
         except Exception as e:  # noqa: BLE001 — recorded privately, logged by type only
             entry["produce_attempts"] = entry.get("produce_attempts", 0) + 1
-            entry["error"] = f"{type(e).__name__}: {str(e)[:500]}"
+            entry["error"] = f"{type(e).__name__}: {str(e)[:1500]}"
             if entry["produce_attempts"] >= MAX_PRODUCE_ATTEMPTS:
                 entry["status"] = "failed"
                 repo.open_issue(f"Production failed: {entry['id']}", f"`{entry['error']}`\n\nSet the entry's status back to "
                                 "`planned` (and `produce_attempts` to 0) in `schedule/queue.json` to retry.")
             safe("produce_failed", id=entry["id"], attempts=entry["produce_attempts"], error_type=type(e).__name__)
-        repo.save_queue(queue)
-        repo.commit_and_push(f"produce: {entry['id']}")
-    repo.save_queue(queue)
+        entry.pop("producing_since", None)
+        _store_entry(repo, entry, f"produce: {entry['id']}")
     return done
 
 
@@ -536,6 +560,7 @@ def main(argv=None) -> int:
     ap.add_argument("--horizon-hours", type=float, default=48)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--id", help="queue item id (inspect)")
+    ap.add_argument("--kind", choices=["short", "long"], help="produce/tick: only this kind")
     a = ap.parse_args(argv)
     if a.command == "auth-youtube":
         auth_youtube()
@@ -552,7 +577,7 @@ def main(argv=None) -> int:
         elif a.command == "remind":
             remind(repo, a.week or next_week(now.date()))
         elif a.command == "produce":
-            produce(repo, now, a.horizon_hours, a.dry_run)
+            produce(repo, now, a.horizon_hours, a.dry_run, kinds={a.kind} if a.kind else None)
         elif a.command == "publish":
             publish(repo, now, media, a.dry_run)
         elif a.command == "analytics":
@@ -568,7 +593,8 @@ def main(argv=None) -> int:
         elif a.command == "tick":
             publish(repo, now, media, a.dry_run)      # publishing first: a long render never delays a due post
             escalate(repo, now, a.dry_run)
-            produce(repo, now, a.horizon_hours, a.dry_run)
+            # episodes render on their own job (Long episodes in tick.yml): a long render never holds up a Short
+            produce(repo, now, a.horizon_hours, a.dry_run, kinds={a.kind} if a.kind else None)
             publish(repo, datetime.now(timezone.utc), media, a.dry_run)
         if not a.dry_run and a.command not in ("remind", "generate", "inspect", "digest", "thumb-preview"):
             repo.save_queue(repo.queue())

@@ -69,7 +69,8 @@ def _backgrounds(tl: Timeline) -> list[dict]:
         reveals = [sg.data["reveal_at"] for sg in bg["segs"]
                    if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
         bg["reveal"] = round(min(reveals), 3) if reveals else None
-        bg["blur_name"] = f"blur_{bg['name']}" if reveals else None
+        # a blurred STILL (not a second video): half the decoding work for the renderer on long episodes
+        bg["blur_name"] = f"blur_{Path(bg['name']).stem}.jpg" if reveals else None
     return out
 
 
@@ -209,10 +210,10 @@ def write_project(tl: Timeline, durations: dict, assets: dict[str, Path], outdir
 
 
 def _blur_copy(src: Path, dest: Path, kind: str) -> None:
-    cmd = (["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-q:v", "3", str(dest)] if kind == "photo"
-           else ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-an", "-c:v", "libx264",
-                 "-preset", "veryfast", "-crf", "28", "-g", "30", "-keyint_min", "30", "-pix_fmt", "yuv420p",
-                 "-movflags", "+faststart", str(dest)])
+    """Blurred still of the background (a photo, or a video's frame at 1 s) that covers it until the reveal."""
+    seek = [] if kind == "photo" else ["-ss", "1"]
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", *seek, "-i", str(src), "-vf", BLUR_VF, "-frames:v", "1",
+           "-q:v", "3", str(dest)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise RenderError(f"ffmpeg failed blurring {src.name}: {r.stderr[-400:]}")
@@ -239,9 +240,9 @@ def _npx(*args: str, cwd: Path | None = None, timeout: int = 3600) -> subprocess
     return subprocess.run(["npx", "-y", HYPERFRAMES, *args], capture_output=True, text=True, cwd=cwd, timeout=timeout)
 
 
-def render_mp4(project: Path, out: Path, quality: str = "standard") -> Path:
+def render_mp4(project: Path, out: Path, quality: str = "standard", timeout: int = 3600) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
-    r = _npx("render", str(project), "-o", str(out), "-q", quality, "--quiet")
+    r = _npx("render", str(project), "-o", str(out), "-q", quality, "--quiet", timeout=timeout)
     if r.returncode != 0 or not out.exists():
         text = "\n".join(l for l in f"{r.stdout}\n{r.stderr}".splitlines() if l.strip() and "[WARN]" not in l
                          and "Re-encode with" not in l)

@@ -59,6 +59,7 @@ jobs:
         env:
           LOOP_MINUTES: ${{ inputs.dry_run && '0' || '320' }}
           GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
+          DISPATCH_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -73,7 +74,7 @@ jobs:
           while :; do
             git -C content pull -q --rebase || true
             git -C media pull -q --rebase || true
-            python -m fbc.cli tick ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
+            python -m fbc.cli tick --kind short ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
             if [ "$(date -u +%H)" = "12" ] && [ ! -f "work/analytics-$(date -u +%F)" ]; then
               mkdir -p work && touch "work/analytics-$(date -u +%F)"
               git -C content pull -q --rebase || true
@@ -83,6 +84,11 @@ jobs:
             if [ "$(date -u +%H)" = "18" ] && [ ! -f "work/digest-$(date -u +%F)" ]; then
               mkdir -p work && touch "work/digest-$(date -u +%F)"
               python -m fbc.cli digest || echo "[fbc] digest_failed {}"
+            fi
+            # once an hour: if an episode is due within 48 h and nobody is rendering it, start the Episodes job
+            if [ "$(date -u +%M)" -lt 10 ] && python -m fbc.cli produce --kind long --dry-run | grep -q would_produce; then
+              GH_TOKEN="$DISPATCH_TOKEN" gh api -X POST "repos/${{ github.repository }}/actions/workflows/episodes.yml/dispatches" -f ref=main \
+                || echo "[fbc] episodes_dispatch_failed {}"
             fi
             [ "$(date +%s)" -ge "$end" ] && break
             # new engine code on main: end this loop now so the next run (started below) uses it

@@ -148,3 +148,47 @@ def test_daily_thumbnail_digest_lists_todays_youtube_shorts(repo):
     title, body = repo.issues[0][-3], repo.issues[0][-1]
     assert n == 1 and "2026-10-20" in title
     assert "https://studio.youtube.com/video/AAA/edit" in body and "OLD" not in body and "LONG" not in body
+
+
+def test_shorts_job_skips_episodes_and_episode_job_skips_shorts(repo):
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    seen = []
+
+    def producer(entry, batch, r, today):
+        seen.append(entry["kind"])
+        entry["status"] = "produced"
+    cli.produce(repo, NOW, 24 * 7, dry_run=False, producer=producer, kinds={"short"})
+    assert seen and set(seen) == {"short"}
+    seen.clear()
+    cli.produce(repo, NOW, 24 * 7, dry_run=False, producer=producer, kinds={"long"})
+    assert seen and set(seen) == {"long"}
+
+
+def test_a_long_render_never_overwrites_what_was_published_meanwhile(repo):
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    cli.intake(repo, NOW.date(), NOW)
+
+    def producer(entry, batch, r, today):
+        # while the episode renders, the Shorts job publishes a Short and saves the queue
+        q = r.queue()
+        q[0]["status"] = "published"
+        r.save_queue(q)
+        assert next(e for e in q if e["id"] == entry["id"])["producing_since"]   # claimed before rendering
+        entry["status"] = "produced"
+    cli.produce(repo, NOW, 24 * 7, dry_run=False, producer=producer, kinds={"long"})
+    q = repo.queue()
+    assert q[0]["status"] == "published"
+    longs = [e for e in q if e["kind"] == "long"]
+    assert longs and all(e["status"] == "produced" and "producing_since" not in e for e in longs)
+
+
+def test_an_entry_claimed_by_another_job_is_left_alone(repo):
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    cli.intake(repo, NOW.date(), NOW)
+    q = repo.queue()
+    first = next(e for e in q if e["kind"] == "short")
+    first["producing_since"] = datetime.now(timezone.utc).isoformat()
+    repo.save_queue(q)
+    seen = []
+    cli.produce(repo, NOW, 48, dry_run=False, producer=lambda e, *a: seen.append(e["id"]), kinds={"short"})
+    assert first["id"] not in seen and seen

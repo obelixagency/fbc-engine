@@ -124,6 +124,13 @@ class ContentRepo:
     def _git(self, *args: str) -> str:
         return subprocess.run(["git", "-C", str(self.path), *args], capture_output=True, text=True, check=True).stdout
 
+    def sync(self) -> None:
+        """Bring the checkout up to date before a read-modify-write (best effort: offline tests have no remote)."""
+        try:
+            self._git("pull", "-q", "--rebase", "origin", "main")
+        except subprocess.CalledProcessError:
+            subprocess.run(["git", "-C", str(self.path), "rebase", "--abort"], capture_output=True)
+
     def commit_and_push(self, message: str) -> None:
         self._git("add", "-A")
         if not self._git("status", "--porcelain").strip():
