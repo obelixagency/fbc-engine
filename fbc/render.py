@@ -211,7 +211,8 @@ def write_project(tl: Timeline, durations: dict, assets: dict[str, Path], outdir
 def _blur_copy(src: Path, dest: Path, kind: str) -> None:
     cmd = (["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-q:v", "3", str(dest)] if kind == "photo"
            else ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", BLUR_VF, "-an", "-c:v", "libx264",
-                 "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dest)])
+                 "-preset", "veryfast", "-crf", "28", "-g", "30", "-keyint_min", "30", "-pix_fmt", "yuv420p",
+                 "-movflags", "+faststart", str(dest)])
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise RenderError(f"ffmpeg failed blurring {src.name}: {r.stderr[-400:]}")
@@ -226,6 +227,7 @@ def prepare_clip(src: Path, dest: Path, width: int, height: int, seconds: float,
     else:
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-stream_loop", "-1", "-i", str(src), "-t", f"{seconds:.2f}",
                "-vf", vf + ",fps=30", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+               "-g", "30", "-keyint_min", "30",   # a keyframe every second: the renderer seeks every frame
                "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dest)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
@@ -241,7 +243,9 @@ def render_mp4(project: Path, out: Path, quality: str = "standard") -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     r = _npx("render", str(project), "-o", str(out), "-q", quality, "--quiet")
     if r.returncode != 0 or not out.exists():
-        raise RenderError(f"hyperframes render failed: {(r.stderr or r.stdout)[-800:]}")
+        text = "\n".join(l for l in f"{r.stdout}\n{r.stderr}".splitlines() if l.strip() and "[WARN]" not in l
+                         and "Re-encode with" not in l)
+        raise RenderError(f"hyperframes render failed (exit {r.returncode}): {text[-1500:]}")
     return out
 
 
