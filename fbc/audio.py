@@ -114,19 +114,63 @@ def tighten(path: Path, keep_s: float = 0.35) -> None:
         tmp.unlink(missing_ok=True)
 
 
-def split_at_pauses(wav: Path, n: int, dests: list[Path]) -> bool:
-    """Cut a batched take into n pieces at its n-1 longest pauses. False if it cannot be split cleanly."""
+FIT_LO, FIT_HI = 0.5, 2.0   # a piece must last between half and twice what its text predicts
+
+
+def _weight(text: str) -> float:
+    """Rough spoken length of a line: letters plus a beat for each sentence break."""
+    return len(re.sub(r"[^A-Za-z0-9]", "", text)) + 6 * len(re.findall(r"[.!?]", text)) + 4
+
+
+def split_at_pauses(wav: Path, texts: list[str], dests: list[Path]) -> bool:
+    """Cut a batched take into one piece per line. The cuts are the pauses that make every piece's length best
+    match its text (not simply the longest pauses: TTS sometimes pauses longer INSIDE a line, e.g. after
+    "It's Zebra!", which used to shift every later line onto the wrong scene). False when no set of cuts gives
+    every piece a plausible length, so the caller voices the lines one by one instead."""
+    import math
+    n = len(texts)
     if n == 1:
         _cut(wav, dests[0], 0.0, None)
         return wav_duration(dests[0]) > 0.3
     total = wav_duration(wav)
-    gaps = [(e - s, s, e) for s, e in _silences(wav) if s > 0.05 and e < total - 0.05]
+    gaps = [(s, e) for s, e in _silences(wav) if s > 0.05 and e < total - 0.05]
     if len(gaps) < n - 1:
         return False
-    cuts = sorted(sorted(gaps, reverse=True)[: n - 1], key=lambda g: g[1])
-    bounds = [0.0] + [(s + e) / 2 for _, s, e in cuts] + [None]
+    pts = [(s + e) / 2 for s, e in gaps]
+    glen = [e - s for s, e in gaps]
+    w = [_weight(t) for t in texts]
+    expect = [total * x / sum(w) for x in w]
+
+    def cost(k: int, t0: float, t1: float) -> float:
+        return math.log(max(t1 - t0, 0.05) / expect[k]) ** 2
+
+    INF = float("inf")
+    G = len(pts)
+    # best[k][j]: lowest cost with piece k ending at gap j (pieces 0..k placed); back-pointers in prev
+    best = [[INF] * G for _ in range(n - 1)]
+    prev = [[-1] * G for _ in range(n - 1)]
+    for j in range(G):
+        best[0][j] = cost(0, 0.0, pts[j]) - 0.05 * glen[j]
+    for k in range(1, n - 1):
+        for j in range(k, G):
+            for i in range(k - 1, j):
+                if best[k - 1][i] < INF:
+                    c = best[k - 1][i] + cost(k, pts[i], pts[j]) - 0.05 * glen[j]
+                    if c < best[k][j]:
+                        best[k][j], prev[k][j] = c, i
+    end_j = min(range(n - 2, G), key=lambda j: best[n - 2][j] + cost(n - 1, pts[j], total), default=None)
+    if end_j is None or best[n - 2][end_j] == INF:
+        return False
+    cuts, j = [], end_j
+    for k in range(n - 2, -1, -1):
+        cuts.append(pts[j])
+        j = prev[k][j]
+    bounds = [0.0] + cuts[::-1] + [total]
+    for k in range(n):
+        if not FIT_LO <= (bounds[k + 1] - bounds[k]) / expect[k] <= FIT_HI:
+            return False
     for k, dest in enumerate(dests):
-        _cut(wav, dest, bounds[k], bounds[k + 1])
+        _cut(wav, dest, bounds[k], bounds[k + 1] if k < n - 1 else None)
         if wav_duration(dest) < 0.3:
             return False
     return True
@@ -165,7 +209,7 @@ def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) ->
         take = outdir / f"_take_{lines[0]['id']}.wav"
         take.write_bytes(_tts_any(tts, SEP.join(l["text"] for l in lines), voice, style))
         dests = [outdir / f"{l['id']}.part.wav" for l in lines]
-        ok = split_at_pauses(take, len(lines), dests)
+        ok = split_at_pauses(take, [l["text"] for l in lines], dests)
         take.unlink()
         if ok:
             for l, d in zip(lines, dests):

@@ -30,6 +30,34 @@ def tone_wav(segments: int, seg_s=0.8, gap_s=1.4, continuous=False):
     return buf.getvalue()
 
 
+def speech_take(text, gap_s=1.0, inner_pause_s=0.0, continuous=False):
+    """A fake batched TTS take: one tone per line, as long as its text predicts, split by gap_s of silence.
+    inner_pause_s > gap_s puts a LONGER pause inside every line after its first sentence (like "It's Zebra! ...")."""
+    import math
+    lines = [p for p in text.split(audio.SEP) if p.strip()]
+    frames = bytearray()
+
+    def tone(sec):
+        for i in range(int(RATE * sec)):
+            frames.extend(int(8000 * math.sin(2 * math.pi * 300 * i / RATE)).to_bytes(2, "little", signed=True))
+
+    def silence(sec):
+        frames.extend(b"\x00\x00" * int(RATE * sec))
+    for k, line in enumerate(lines):
+        sec = 0.06 * audio._weight(line)
+        head, _, tail = line.partition("! ")
+        if inner_pause_s and tail:
+            tone(sec * len(head) / len(line)); silence(inner_pause_s); tone(sec * len(tail) / len(line))
+        else:
+            tone(sec)
+        if k < len(lines) - 1:
+            (tone if continuous else silence)(gap_s)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(RATE); w.writeframes(bytes(frames))
+    return buf.getvalue()
+
+
 def n_lines(text):
     return len([p for p in text.split(audio.SEP) if p.strip()])
 
@@ -45,11 +73,12 @@ def test_short_is_voiced_in_one_call_and_split(tmp_path, batch):
 
     def tts(text, voice, style, model=None):
         calls.append((voice, n_lines(text)))
-        return tone_wav(n_lines(text))
+        return speech_take(text)
     d = audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
     assert len(calls) == 1 and calls[0] == ("Puck", 8)
     assert set(d) == {l["id"] for l in req["lines"]}
-    assert all(0.5 < v < 1.3 for v in d.values())
+    for l in req["lines"]:   # every piece is its own line, not a neighbour's
+        assert d[l["id"]] == pytest.approx(0.06 * audio._weight(l["text"]), rel=0.25, abs=0.3)
 
 
 def test_long_groups_by_voice_in_chunks(tmp_path, batch):
@@ -58,7 +87,7 @@ def test_long_groups_by_voice_in_chunks(tmp_path, batch):
 
     def tts(text, voice, style, model=None):
         calls.append((voice, n_lines(text)))
-        return tone_wav(n_lines(text))
+        return speech_take(text)
     d = audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
     assert len(d) == len(req["lines"])
     assert {v for v, _ in calls} == {"Puck", "Zephyr"}
@@ -72,7 +101,7 @@ def test_unsplittable_audio_falls_back_to_per_line(tmp_path, batch):
 
     def tts(text, voice, style, model=None):
         calls.append(n_lines(text))
-        return tone_wav(n_lines(text), continuous=True)
+        return speech_take(text, continuous=True)
     d = audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
     assert calls[0] == 8 and calls[1:] == [1] * 8
     assert len(d) == 8
@@ -86,7 +115,7 @@ def test_fallback_model_on_quota(tmp_path, batch):
         seen.append(model)
         if model == audio.TTS_MODELS[0]:
             raise QuotaExceeded("429")
-        return tone_wav(n_lines(text))
+        return speech_take(text)
     audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
     assert seen == list(audio.TTS_MODELS)
 
@@ -99,13 +128,13 @@ def test_quota_on_all_models_keeps_progress(tmp_path, batch):
         state["n"] += 1
         if state["n"] > 2:
             raise QuotaExceeded("429")
-        return tone_wav(n_lines(text))
+        return speech_take(text)
     with pytest.raises(QuotaExceeded):
         audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
     done = len(list(tmp_path.glob("*.wav")))
     assert done > 0
     calls = []
-    audio.synthesize(req, tmp_path, tts=lambda t, v, s, model=None: calls.append(1) or tone_wav(n_lines(t)), spacing_s=0)
+    audio.synthesize(req, tmp_path, tts=lambda t, v, s, model=None: calls.append(1) or speech_take(t), spacing_s=0)
     assert len(list(tmp_path.glob("*.wav"))) == len(req["lines"])
 
 
@@ -125,3 +154,19 @@ def test_long_pause_inside_a_line_is_shortened(tmp_path):
     before = audio.wav_duration(p)
     audio.tighten(p)                      # idempotent: cached lines are tightened again on every tick
     assert abs(audio.wav_duration(p) - before) < 0.05
+
+
+def test_a_longer_pause_inside_a_line_does_not_shift_the_lines(tmp_path, batch):
+    """Regression: the take paused 1.6 s after "It's Zebra!" but only 0.9 s between lines, and the old
+    longest-pauses split gave the fun fact to the next question, so speech no longer matched the scenes."""
+    req = audio.build_audio_request(batch.shorts[0])
+    calls = []
+
+    def tts(text, voice, style, model=None):
+        calls.append(n_lines(text))
+        return speech_take(text, gap_s=0.9, inner_pause_s=1.6)
+    d = audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
+    assert calls == [8]                     # still one call: split correctly, no per-line fallback
+    for l in req["lines"]:
+        expected = 0.06 * audio._weight(l["text"])
+        assert d[l["id"]] == pytest.approx(expected, rel=0.3, abs=0.4), l["id"]
