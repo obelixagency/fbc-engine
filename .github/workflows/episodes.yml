@@ -30,8 +30,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: work/**/voice
-          key: voice-long-${{ github.run_id }}
-          restore-keys: voice-long-
+          key: voice-long-v2-${{ github.run_id }}
+          restore-keys: voice-long-v2-
       - run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
       - run: pip install -e .
       - run: npx -y hyperframes@0.8.170 browser ensure
