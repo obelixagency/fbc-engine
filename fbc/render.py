@@ -237,7 +237,22 @@ def prepare_clip(src: Path, dest: Path, width: int, height: int, seconds: float,
 
 
 def _npx(*args: str, cwd: Path | None = None, timeout: int = 3600) -> subprocess.CompletedProcess:
-    return subprocess.run(["npx", "-y", HYPERFRAMES, *args], capture_output=True, text=True, cwd=cwd, timeout=timeout)
+    """Run the HyperFrames CLI in its own process group, so a timeout kills Chrome and ffmpeg too (killing only
+    npx leaves them holding the output pipes, and the call would then hang forever)."""
+    return _run_group(["npx", "-y", HYPERFRAMES, *args], cwd, timeout, args[0])
+
+
+def _run_group(cmd: list[str], cwd: Path | None, timeout: int, what: str) -> subprocess.CompletedProcess:
+    import os
+    import signal
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd, start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        raise RenderError(f"hyperframes {what} timed out after {timeout} s")
+    return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 
 def render_mp4(project: Path, out: Path, quality: str = "standard", timeout: int = 3600) -> Path:

@@ -108,3 +108,13 @@ def test_scene_and_background_visibility_is_driven_by_the_timeline(tmp_path):
     assert {"m": "set", "sel": "#sc1", "t": 0, "to": {"autoAlpha": 0}} in vis
     assert {"m": "set", "sel": "#sc1", "t": round(s1.start, 3), "to": {"autoAlpha": 1}} in vis
     assert any(a["sel"] == "#bgw1" and a["to"] == {"autoAlpha": 0} and a["t"] == 0 for a in vis)
+
+
+def test_a_timed_out_render_kills_its_children_instead_of_hanging():
+    import time
+    from fbc.render import RenderError, _run_group
+    t0 = time.monotonic()
+    # the grandchild keeps the output pipe open: a plain subprocess.run timeout would wait for it (100 s)
+    with pytest.raises(RenderError, match="timed out"):
+        _run_group(["bash", "-c", "sleep 100 & sleep 100"], None, 1, "render")
+    assert time.monotonic() - t0 < 10

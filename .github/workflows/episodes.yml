@@ -59,4 +59,4 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
-        run: python -m fbc.cli produce --kind long --horizon-hours 48
+        run: timeout 300m python -m fbc.cli produce --kind long --horizon-hours 48

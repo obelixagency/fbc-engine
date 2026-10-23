@@ -74,7 +74,7 @@ jobs:
           while :; do
             git -C content pull -q --rebase || true
             git -C media pull -q --rebase || true
-            python -m fbc.cli tick --kind short ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
+            timeout 55m python -m fbc.cli tick --kind short ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
             if [ "$(date -u +%H)" = "12" ] && [ ! -f "work/analytics-$(date -u +%F)" ]; then
               mkdir -p work && touch "work/analytics-$(date -u +%F)"
               git -C content pull -q --rebase || true

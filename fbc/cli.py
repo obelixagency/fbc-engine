@@ -172,7 +172,7 @@ def _make_video(item, kind: str, work: Path, repo: ContentRepo, today: date, exc
         assets[name] = work / "sfx" / name
     project = render.write_project(tl, durations, assets, work / "project", kind)
     out = work / f"{item.id}.mp4"
-    render.render_mp4(project, out, timeout=3600 if portrait else 4 * 3600)   # an episode renders on its own job
+    render.render_mp4(project, out, timeout=1200 if portrait else 4 * 3600)   # an episode renders on its own job
     problems = qa.check_video(out, kind, json.loads((project / "qa.json").read_text()))
     if problems:
         raise RuntimeError("QA failed: " + "; ".join(problems))
@@ -244,7 +244,7 @@ MAX_PRODUCE_ATTEMPTS = 3
 PRODUCE_BUDGET_S = 40 * 60   # stop starting new renders after 40 min so the next tick can publish on time
 
 
-CLAIM_H = 5   # a render claimed longer ago than this is treated as abandoned (its job died)
+CLAIM_H = {"short": 1, "long": 5}   # a claim older than this is abandoned (its job died or was killed)
 
 
 def _store_entry(repo: ContentRepo, entry: dict, message: str) -> None:
@@ -272,7 +272,7 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
         if kinds and entry["kind"] not in kinds:
             continue
         claimed = entry.get("producing_since")
-        if claimed and datetime.fromisoformat(claimed) > datetime.now(timezone.utc) - timedelta(hours=CLAIM_H):
+        if claimed and datetime.fromisoformat(claimed) > datetime.now(timezone.utc) - timedelta(hours=CLAIM_H.get(entry["kind"], 5)):
             continue                          # another job is rendering it right now
         if dry_run:
             safe("would_produce", id=entry["id"], kind=entry["kind"])
