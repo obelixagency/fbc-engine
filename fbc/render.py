@@ -26,8 +26,8 @@ class RenderError(RuntimeError):
 QUESTION_KINDS = {"mcq", "tf", "riddle", "zoom", "wyr"}
 HIDE_UNTIL_REVEAL = {"mcq", "tf", "riddle"}      # zoom reveal hides its subject by zooming in instead
 # strong enough to survive being shown in the small picture panel, and mostly grey: a blurred red disc still
-# says "Mars", so the colour that could give an answer away is washed out too
-BLUR_VF = ("boxblur=luma_radius=80:luma_power=3:chroma_radius=40:chroma_power=3,hue=s=0.3,"
+# says "Mars" and two red blobs say "heart", so the picture is fully greyed until the reveal
+BLUR_VF = ("boxblur=luma_radius=120:luma_power=3:chroma_radius=60:chroma_power=3,hue=s=0,"
            "eq=brightness=-0.08")
 PRE_QUESTION = {"intro", "round_title", "hook"}
 PARTS = {"hook": ("-big",), "outro": ("-big", "-sub"), "intro": ("-pill", "-big", "-sub"),
