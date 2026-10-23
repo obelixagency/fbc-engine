@@ -25,7 +25,11 @@ class RenderError(RuntimeError):
 
 QUESTION_KINDS = {"mcq", "tf", "riddle", "zoom", "wyr"}
 HIDE_UNTIL_REVEAL = {"mcq", "tf", "riddle"}      # zoom reveal hides its subject by zooming in instead
-BLUR_VF = "boxblur=luma_radius=40:luma_power=2:chroma_radius=20:chroma_power=2,eq=brightness=-0.06"
+# strong enough to survive being shown in the small picture panel, and mostly grey: a blurred red disc still
+# says "Mars", so the colour that could give an answer away is washed out too
+BLUR_VF = ("boxblur=luma_radius=80:luma_power=3:chroma_radius=40:chroma_power=3,hue=s=0.3,"
+           "eq=brightness=-0.08")
+PRE_QUESTION = {"intro", "round_title", "hook"}
 PARTS = {"hook": ("-big",), "outro": ("-big", "-sub"), "intro": ("-pill", "-big", "-sub"),
          "round_title": ("-pill", "-big"), "score": ("-big", "-sub"), "tiers": ("-big", "-tiers"),
          "end": ("-big", "-sub")}
@@ -69,8 +73,10 @@ def _backgrounds(tl: Timeline) -> list[dict]:
         reveals = [sg.data["reveal_at"] for sg in bg["segs"]
                    if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
         bg["reveal"] = round(min(reveals), 3) if reveals else None
+        # intro / round title / hook scenes borrow the clip of a question that is not asked yet: keep it blurred
+        early = any(sg.kind in PRE_QUESTION for sg in bg["segs"])
         # a blurred STILL (not a second video): half the decoding work for the renderer on long episodes
-        bg["blur_name"] = f"blur_{Path(bg['name']).stem}.jpg" if reveals else None
+        bg["blur_name"] = f"blur_{Path(bg['name']).stem}.jpg" if reveals or early else None
     return out
 
 

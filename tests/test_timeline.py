@@ -96,3 +96,17 @@ def test_teaser_from_long_episode(batch):
     assert tl.duration <= timeline.SHORT_MAX and (tl.width, tl.height) == (1080, 1920)
     outro = tl.segments[-1]
     assert "YouTube" in outro.data["outro_text"] and "YouTube" in outro.data["outro_sub"]
+
+
+def test_intro_and_round_titles_never_show_a_question_clip_unblurred(batch):
+    """The intro and each round title borrow the clip of a question that has not been asked yet (zebras before
+    'which mammal has stripes?', a red planet before 'which is the Red Planet?'), so they stay blurred."""
+    from fbc import render
+    item = batch.long
+    tl = timeline.build_long_timeline(item, durs(item, 2.0), clips(item))
+    bgs = render._backgrounds(tl)
+    for bg in bgs:
+        if any(s.kind in ("intro", "round_title") for s in bg["segs"]):
+            assert bg["blur_name"], [s.kind for s in bg["segs"]]
+            first_pre = min(s.start for s in bg["segs"] if s.kind in ("intro", "round_title"))
+            assert bg["reveal"] is None or bg["reveal"] > first_pre
