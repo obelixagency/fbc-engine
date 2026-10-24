@@ -69,14 +69,21 @@ def _pace_text() -> None:
     _last_text_call = time.monotonic()
 
 
-def _post(url: str, body: dict, timeout: int = 180) -> dict:
+def _post(url: str, body: dict, timeout: int = 360) -> dict:
     key = env("GEMINI_API_KEY")
     busy = 0
     attempt = 0
     while True:
         if ":generateContent" in url:
             _pace_text()
-        r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
+        try:
+            r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
+        except (requests.Timeout, requests.ConnectionError):
+            if busy >= len(BUSY_WAITS_S):
+                raise
+            time.sleep(BUSY_WAITS_S[busy])   # an overloaded model can stall a whole batch call: try again
+            busy += 1
+            continue
         if r.status_code in BUSY_STATUS and busy < len(BUSY_WAITS_S):
             # "model is experiencing high demand" (503) and friends are temporary: wait and retry, ~10 min in all
             time.sleep(BUSY_WAITS_S[busy])

@@ -152,3 +152,18 @@ def test_model_busy_for_too_long_still_fails_with_status(monkeypatch):
     with pytest.raises(gemini.GeminiError) as e:
         gemini.generate_json("x", {})
     assert e.value.http == 503 and len(calls) == len(gemini.BUSY_WAITS_S) + 1
+
+
+def test_a_stalled_call_is_retried(monkeypatch):
+    """Regression: the W44 re-run died on one ReadTimeout from an overloaded model."""
+    ok = Resp(200, {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]})
+    replies = [gemini.requests.ReadTimeout("read timed out"), ok]
+
+    def post(*a, **k):
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    monkeypatch.setattr(gemini.requests, "post", post)
+    assert gemini.generate_json("x", {}) == {}
