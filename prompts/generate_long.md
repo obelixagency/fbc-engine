@@ -9,7 +9,8 @@ Hard rules (same as the Shorts):
 - visual_query: 2-4 words for a stock video search of the subject (no children as main subject).
 
 Rounds (names fixed): {rounds}
-Write 7 questions per round (one spare) and 2 bonus candidates (hard, surprising).
+Write 9 questions per round (three spares) and 3 bonus candidates (hard, surprising).
+Brain Teasers: write fresh riddles and logic puzzles, not the famous classics everyone has heard.
 Also 3 titles (< 60 chars, e.g. "Family Quiz Night #{episode}: Can You Beat Your Kids?"), a 2-sentence description with search keywords, and a first_comment asking for scores.
 
 Avoid these recently used questions:

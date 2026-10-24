@@ -199,3 +199,20 @@ def test_old_single_episode_batch_still_loads():
     from tests.conftest import make_batch
     b = parse_batch(_j.dumps(make_batch()))
     assert len(b.longs) == 1 and b.long is b.longs[0]
+
+
+def test_a_long_round_short_of_fresh_questions_gets_one_top_up_call():
+    """Regression: W44 failed because 'Brain Teasers' had only 5 fresh riddles (classic ones repeat)."""
+    gen, state = fake_gen_factory()
+    calls = {"long": 0}
+
+    def gen2(prompt, schema, grounded=False, **kw):
+        out = gen(prompt, schema, grounded, **kw)
+        if "Family Quiz Night" in prompt and not grounded:
+            calls["long"] += 1
+            if calls["long"] == 1:   # first answer: only 5 usable brain teasers
+                out["rounds"][4]["questions"] = out["rounds"][4]["questions"][:5]
+        return out
+    b = build(gen2)
+    assert all(len(r["questions"]) == 6 for l in b.longs for r in l.rounds)
+    assert calls["long"] == len(generate.LONG_SLOTS_ET) + 1

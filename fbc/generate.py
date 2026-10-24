@@ -116,29 +116,52 @@ def _assign_and_filter(cands: list[dict], week: str, used, today, seen, n: int,
     return out
 
 
+def _round_src(raw: dict, r_i: int, name: str) -> list:
+    rounds = raw.get("rounds", []) if isinstance(raw, dict) else []
+    src = next((r for r in rounds if r.get("name") == name), None) or \
+        (rounds[r_i - 1] if len(rounds) >= r_i else {"questions": []})
+    return list(src.get("questions", []))
+
+
 def _long(week, episode, used, gen, today, seen, n: int = 0, avoid_extra: list | None = None) -> dict:
-    raw = gen(LONG_PROMPT.format(episode=episode, rounds=", ".join(ROUND_NAMES),
-                                 avoid=_avoid(used + (avoid_extra or []))), LONG_SCHEMA) or {}
+    def call(extra_avoid):
+        return gen(LONG_PROMPT.format(episode=episode, rounds=", ".join(ROUND_NAMES),
+                                      avoid=_avoid(used + (avoid_extra or []) + extra_avoid)), LONG_SCHEMA) or {}
+    raw = call([])
     lid = f"l_{_wk(week)}" + (f"_{n + 1}" if n else "")
-    rounds = []
-    for r_i, name in enumerate(ROUND_NAMES, 1):
-        src = next((r for r in raw.get("rounds", []) if r.get("name") == name), None) or \
-            (raw.get("rounds", [])[r_i - 1] if len(raw.get("rounds", [])) >= r_i else {"questions": []})
-        qs, rejects = [], []
-        for qd in src.get("questions", []):
-            qd = dict(_norm(qd), id=f"{lid}_r{r_i}_{len(qs)}", source_url=qd.get("source_url", ""), verified=False, flags=[])
-            problems = question_problems(qd)
-            if problems:
-                rejects.extend(problems)
-            elif _fresh(qd, used, seen, today):
-                qs.append(qd)
-            else:
-                rejects.append(f"{qd['id']}: duplicate of a recent question")
-            if len(qs) == PER_ROUND:
-                break
-        if len(qs) < PER_ROUND:
-            raise BatchError([f"{lid}: round {name!r} has only {len(qs)} usable questions", *rejects[:20]])
-        rounds.append({"name": name, "questions": qs})
+    pools = {r_i: _round_src(raw, r_i, name) for r_i, name in enumerate(ROUND_NAMES, 1)}
+    chosen: dict[int, list] = {r_i: [] for r_i in pools}
+    rejects: list[str] = []
+    topped_up = False
+    while True:
+        for r_i, name in enumerate(ROUND_NAMES, 1):
+            qs = chosen[r_i]
+            while pools[r_i] and len(qs) < PER_ROUND:
+                qd = pools[r_i].pop(0)
+                qd = dict(_norm(qd), id=f"{lid}_r{r_i}_{len(qs)}", source_url=qd.get("source_url", ""),
+                          verified=False, flags=[])
+                problems = question_problems(qd)
+                if problems:
+                    rejects.extend(problems)
+                elif _fresh(qd, used, seen, today):
+                    qs.append(qd)
+                else:
+                    rejects.append(f"{qd['id']}: duplicate of a recent question")
+        short = [ROUND_NAMES[r_i - 1] for r_i, qs in chosen.items() if len(qs) < PER_ROUND]
+        if not short or topped_up:
+            break
+        # one top-up call: classic riddles repeat a lot, so a round can run out of fresh spares
+        topped_up = True
+        extra = call([{"question": q["question"]} for qs in chosen.values() for q in qs])
+        for r_i, name in enumerate(ROUND_NAMES, 1):
+            pools[r_i] += _round_src(extra, r_i, name)
+        raw.setdefault("bonus", [])
+        raw["bonus"] = list(raw.get("bonus") or []) + list(extra.get("bonus") or [])
+    if short:
+        name = short[0]
+        have = len(chosen[ROUND_NAMES.index(name) + 1])
+        raise BatchError([f"{lid}: round {name!r} has only {have} usable questions", *rejects[:20]])
+    rounds = [{"name": name, "questions": chosen[r_i]} for r_i, name in enumerate(ROUND_NAMES, 1)]
     bonus = None
     for qd in raw.get("bonus", []):
         qd = dict(_norm(qd), id=f"{lid}_bonus", source_url=qd.get("source_url", ""), verified=False, flags=[])
