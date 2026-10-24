@@ -131,3 +131,24 @@ def test_text_calls_are_paced_for_free_tier_rpm(monkeypatch):
     gemini.generate_json("a", {})
     gemini.generate_json("b", {})
     assert sleeps and abs(sum(sleeps) - gemini.TEXT_MIN_GAP_S) < 0.01
+
+
+def test_model_busy_503_is_retried_then_succeeds(monkeypatch):
+    """Regression: Friday's W44 generation died on one 'model is experiencing high demand' 503."""
+    busy = Resp(503, {"error": {"code": 503, "status": "UNAVAILABLE", "message": "high demand"}})
+    replies = [busy, busy, Resp(200, {"candidates": [{"content": {"parts": [{"text": "{}"}]}}]})]
+    sleeps = []
+    monkeypatch.setattr(gemini.time, "sleep", sleeps.append)
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: replies.pop(0))
+    assert gemini.generate_json("x", {}) == {}
+    assert len([s for s in sleeps if s >= 20]) == 2
+
+
+def test_model_busy_for_too_long_still_fails_with_status(monkeypatch):
+    busy = Resp(503, {"error": {"code": 503, "status": "UNAVAILABLE", "message": "high demand"}})
+    calls = []
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    monkeypatch.setattr(gemini.requests, "post", lambda *a, **k: calls.append(1) or busy)
+    with pytest.raises(gemini.GeminiError) as e:
+        gemini.generate_json("x", {})
+    assert e.value.http == 503 and len(calls) == len(gemini.BUSY_WAITS_S) + 1

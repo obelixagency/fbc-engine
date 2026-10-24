@@ -27,6 +27,8 @@ class QuotaExceeded(ResumeLater, GeminiError):
 
 
 RETRIES = 4
+BUSY_STATUS = {500, 502, 503, 504}
+BUSY_WAITS_S = (20, 40, 60, 120, 180, 240)
 TEXT_MIN_GAP_S = 13.0     # free tier allows 5 text requests/minute per model; stay just under it
 _last_text_call = 0.0
 
@@ -69,10 +71,17 @@ def _pace_text() -> None:
 
 def _post(url: str, body: dict, timeout: int = 180) -> dict:
     key = env("GEMINI_API_KEY")
-    for attempt in range(RETRIES):
+    busy = 0
+    attempt = 0
+    while True:
         if ":generateContent" in url:
             _pace_text()
         r = requests.post(url, headers=_headers(), json=body, timeout=timeout)
+        if r.status_code in BUSY_STATUS and busy < len(BUSY_WAITS_S):
+            # "model is experiencing high demand" (503) and friends are temporary: wait and retry, ~10 min in all
+            time.sleep(BUSY_WAITS_S[busy])
+            busy += 1
+            continue
         if r.status_code != 429:
             break
         window = _quota_window(r)
@@ -85,6 +94,7 @@ def _post(url: str, body: dict, timeout: int = 180) -> dict:
             wait = 0
         floor = 61 if window == "PER_MINUTE" else 5 * 2 ** attempt
         time.sleep(min(max(wait, floor), 90))
+        attempt += 1
     if r.status_code >= 400:
         try:
             reason = r.json().get("error", {}).get("status")
