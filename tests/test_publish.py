@@ -213,3 +213,25 @@ def test_a_platform_rescheduled_with_not_before_waits_for_its_own_time(monkeypat
     entry["platforms"]["facebook"]["not_before"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     publish.publish_item(entry, meta_, tmp_path / "v.mp4", None, None)
     assert calls == ["fb"] and entry["platforms"]["facebook"]["status"] == "published"
+
+
+@pytest.mark.real_page_token
+def test_a_system_user_token_is_turned_into_the_page_token(monkeypatch):
+    from fbc.publish import meta
+    monkeypatch.setenv("FB_PAGE_ID", "PAGE1")
+    monkeypatch.setenv("FB_PAGE_TOKEN", "SYS-USER")
+    meta._PAGE_TOKEN.clear()
+    seen = []
+
+    class R:
+        def __init__(self, d): self.status_code, self._d = 200, d
+        def json(self): return self._d
+
+    def get(url, params=None, **k):
+        seen.append(url.rsplit("/", 1)[-1])
+        if url.endswith("/me"):
+            return R({"id": "SYSUSER9"})
+        return R({"access_token": "PAGE-TOKEN", "id": "PAGE1"})
+    monkeypatch.setattr(meta.requests, "get", get)
+    assert meta.page_token() == "PAGE-TOKEN"
+    assert seen == ["me", "PAGE1"]

@@ -14,6 +14,11 @@ GRAPH = "https://graph.facebook.com/v26.0"
 MIN_AGE = timedelta(hours=72)
 
 
+
+def _meta_token() -> str:
+    from .publish.meta import page_token
+    return page_token()
+
 def fetch_youtube(video_id: str, start: date, token: str | None = None) -> dict | None:
     from .publish.youtube import access_token
     token = token or access_token()
@@ -30,7 +35,7 @@ def fetch_youtube(video_id: str, start: date, token: str | None = None) -> dict 
 
 def fetch_instagram(media_id: str, duration: float) -> dict | None:
     r = requests.get(f"{GRAPH}/{media_id}/insights", timeout=60, params={
-        "metric": "views,likes,comments,shares,ig_reels_avg_watch_time", "access_token": env("FB_PAGE_TOKEN")})
+        "metric": "views,likes,comments,shares,ig_reels_avg_watch_time", "access_token": _meta_token()})
     data = r.json()
     if r.status_code >= 400 or "data" not in data:
         return None

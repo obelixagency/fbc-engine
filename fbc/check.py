@@ -74,16 +74,29 @@ def check_youtube() -> None:
 
 
 def check_facebook() -> None:
-    page_id, token = env("FB_PAGE_ID"), env("FB_PAGE_TOKEN")
+    from .publish.meta import MetaError, page_token
+    page_id = env("FB_PAGE_ID")
+    try:
+        token = page_token()   # a system-user token is turned into the Page token here
+    except MetaError:
+        raise CheckFailed(400, "token_invalid_or_no_page_access")
     data = _need_ok(requests.get(f"{GRAPH}/me", params={"fields": "id", "access_token": token}, timeout=30),
                     _meta_reason)
     if str(data.get("id")) != str(page_id):
         raise CheckFailed(200, "token_is_not_the_page_token")
 
 
+def _ig_token() -> str:
+    from .publish.meta import MetaError, page_token
+    try:
+        return page_token()
+    except MetaError:
+        raise CheckFailed(400, "token_invalid_or_no_page_access")
+
+
 def check_instagram() -> None:
     data = _need_ok(requests.get(f"{GRAPH}/{env('IG_USER_ID')}", params={
-        "fields": "id", "access_token": env("FB_PAGE_TOKEN")}, timeout=30), _meta_reason)
+        "fields": "id", "access_token": _ig_token()}, timeout=30), _meta_reason)
     if not data.get("id"):
         raise CheckFailed(200, "no_instagram_account")
 

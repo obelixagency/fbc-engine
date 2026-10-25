@@ -46,3 +46,13 @@ def make_batch():
 @pytest.fixture
 def batch_dict():
     return copy.deepcopy(make_batch())
+
+
+@pytest.fixture(autouse=True)
+def _page_token_offline(monkeypatch, request):
+    """Unit tests never call Graph to resolve the Page token; the env token stands in for it."""
+    if "real_page_token" in request.keywords:
+        return
+    import os
+    from fbc.publish import meta
+    monkeypatch.setattr(meta, "page_token", lambda: os.environ.get("FB_PAGE_TOKEN", "test-token"))

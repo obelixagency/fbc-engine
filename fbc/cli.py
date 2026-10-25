@@ -525,7 +525,8 @@ def inspect_covers(repo: ContentRepo, item_id: str) -> list[Path]:
         urls["youtube"] = best["url"]
     except Exception as ex:  # noqa: BLE001
         safe("inspect_failed", platform="youtube", error_type=type(ex).__name__)
-    token = env("FB_PAGE_TOKEN")
+    from .publish.meta import page_token
+    token = page_token()
     try:
         d = requests.get(f"{m.GRAPH}/{p['instagram']['ref']}", params={"fields": "thumbnail_url", "access_token": token},
                          timeout=30).json()
