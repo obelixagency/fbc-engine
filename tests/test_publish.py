@@ -195,3 +195,21 @@ def test_short_cover_image_goes_to_instagram_as_cover_url_and_facebook_thumbnail
     publish.publish_item(entry(), m, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
     assert sent["ig"]["cover_url"] == "https://pub/s1_cover.png"
     assert sent["fb"] == ("fb1", "s1_cover.png")
+
+
+def test_a_platform_rescheduled_with_not_before_waits_for_its_own_time(monkeypatch, tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from fbc import publish
+    calls = []
+    monkeypatch.setattr(publish.meta, "fb_reel", lambda *a, **k: calls.append("fb") or "fb1")
+    later = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+    entry = {"id": "s_x", "platforms": {
+        "youtube": {"status": "published", "ref": "y", "error": None, "attempts": 0},
+        "instagram": {"status": "published", "ref": "i", "error": None, "attempts": 0},
+        "facebook": {"status": "pending", "ref": None, "error": None, "attempts": 0, "not_before": later}}}
+    meta_ = {"title": "t", "description": "d", "first_comment": "", "is_short": True, "chapters": []}
+    publish.publish_item(entry, meta_, tmp_path / "v.mp4", None, None)
+    assert calls == [] and entry["platforms"]["facebook"]["status"] == "pending"
+    entry["platforms"]["facebook"]["not_before"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    publish.publish_item(entry, meta_, tmp_path / "v.mp4", None, None)
+    assert calls == ["fb"] and entry["platforms"]["facebook"]["status"] == "published"

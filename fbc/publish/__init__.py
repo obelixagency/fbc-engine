@@ -2,7 +2,7 @@
 a failure on one platform never blocks the others, and each retry only touches what failed."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from ..log import safe
@@ -51,6 +51,9 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
     def run(name, fn):
         p = plats[name]
         if p["status"] == "published":
+            return
+        # a platform can be rescheduled on its own (e.g. Reels that missed their slot while the Meta token was dead)
+        if p.get("not_before") and datetime.now(timezone.utc) < datetime.fromisoformat(p["not_before"]):
             return
         try:
             p["ref"], p["status"], p["error"] = fn(), "published", None
