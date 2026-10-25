@@ -21,7 +21,7 @@ def access_token() -> str:
                                        "refresh_token": env("YT_REFRESH_TOKEN"), "grant_type": "refresh_token"}, timeout=30)
     data = r.json()
     if "access_token" not in data:
-        raise YouTubeError(f"token refresh failed: {data.get('error')}")
+        raise YouTubeError(f"token refresh failed (HTTP {r.status_code})")
     return data["access_token"]
 
 
@@ -32,7 +32,7 @@ def _check(r) -> dict:
         data = {}
     if r.status_code >= 400:
         err = data.get("error", {})
-        raise YouTubeError(f"YouTube HTTP {r.status_code}: {err.get('message') if isinstance(err, dict) else err}")
+        raise YouTubeError(f"YouTube HTTP {r.status_code}")
     return data
 
 
@@ -77,3 +77,4 @@ def add_comment(video_id: str, text: str, token: str | None = None) -> str:
     data = _check(requests.post(f"{API}/commentThreads", params={"part": "snippet"},
                                 headers={"Authorization": f"Bearer {token}"}, json=body, timeout=60))
     return data.get("id", "")
+

@@ -108,7 +108,7 @@ def _post(url: str, body: dict, timeout: int = 360) -> dict:
         except (ValueError, AttributeError):
             reason = None
         reason = reason if isinstance(reason, str) and re.fullmatch(r"[A-Z_]{2,40}", reason) else None
-        raise GeminiError(f"Gemini HTTP {r.status_code}: {r.text[:300]}".replace(key, "[redacted]"),
+        raise GeminiError(f"Gemini HTTP {r.status_code}",
                           http=r.status_code, reason=reason)
     return r.json()
 
@@ -175,3 +175,4 @@ def tts_wav(text: str, voice: str, style: str, model: str = TTS_MODEL) -> bytes:
     if wav[:4] != b"RIFF" or wav[8:12] != b"WAVE":
         raise GeminiError("TTS returned invalid WAV")
     return wav
+

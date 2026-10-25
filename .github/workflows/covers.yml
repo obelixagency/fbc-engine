@@ -30,4 +30,11 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
-        run: python -m fbc.cli ${{ inputs.inspect_id && format('inspect --id {0}', inputs.inspect_id) || 'covers' }}
+          INSPECT_ID: ${{ inputs.inspect_id }}
+        run: |
+          if [ -n "$INSPECT_ID" ]; then
+            python -m fbc.cli inspect --id "$INSPECT_ID"
+          else
+            python -m fbc.cli covers
+          fi
+

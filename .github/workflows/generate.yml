@@ -36,9 +36,16 @@ jobs:
           GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_TEXT_MODEL: ${{ vars.GEMINI_TEXT_MODEL }}
-        run: python -m fbc.cli generate ${{ inputs.week && format('--week {0}', inputs.week) || '' }} ${{ inputs.dry_run && '--dry-run' || '' }}
+          GENERATE_WEEK: ${{ inputs.week }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          [ -z "$GENERATE_WEEK" ] || args+=(--week "$GENERATE_WEEK")
+          [ "$DRY_RUN" != "true" ] || args+=(--dry-run)
+          python -m fbc.cli generate "${args[@]}"
       - name: Sunday reminder
         if: github.event.schedule == '0 17 * * 0'
         env:
           GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
         run: python -m fbc.cli remind
+

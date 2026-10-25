@@ -16,7 +16,7 @@ PLATFORMS = ("youtube", "instagram", "facebook")
 def _gh(*args: str) -> str:
     r = subprocess.run(["gh", *args], capture_output=True, text=True)
     if r.returncode != 0:
-        raise RuntimeError(f"gh {args[0]} {args[1] if len(args) > 1 else ''} failed: {r.stderr[-300:]}")
+        raise RuntimeError(f"GitHub command failed (exit {r.returncode})")
     return r.stdout
 
 
@@ -193,3 +193,4 @@ class ContentRepo:
         body_file.write_text(body_md)
         self.run_gh("pr", "create", "-R", self.gh_repo, "--base", "main", "--head", branch,
                     "--title", f"Family Brain Clash batch {week} — review & merge to approve", "--body-file", str(body_file))
+
