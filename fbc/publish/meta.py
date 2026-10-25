@@ -22,7 +22,7 @@ def _check(resp) -> dict:
         raise MetaError(f"non-JSON response (HTTP {resp.status_code})")
     if resp.status_code >= 400 or "error" in data:
         err = data.get("error", {})
-        raise MetaError(f"Meta HTTP {resp.status_code}: {err.get('message') if isinstance(err, dict) else err}")
+        raise MetaError(f"Meta HTTP {resp.status_code}")
     return data
 
 
@@ -116,3 +116,4 @@ def fb_comment(object_id: str, text: str) -> str:
 def ig_comment(media_id: str, text: str) -> str:
     token = page_token()
     return _check(requests.post(f"{GRAPH}/{media_id}/comments", data={"message": text, "access_token": token}, timeout=60)).get("id", "")
+

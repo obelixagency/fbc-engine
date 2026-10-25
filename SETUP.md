@@ -29,7 +29,7 @@
    git clone https://github.com/obelixagency/fbc-engine && cd fbc-engine && pip install -e .
    YT_CLIENT_ID=... YT_CLIENT_SECRET=... python -m fbc.cli auth-youtube
    ```
-   هيفتحلك صفحة جوجل. ادخل بحساب **قناة Family Brain Clash** واضغط Allow. الأمر هيطبع `YT_REFRESH_TOKEN`، انسخه وحطه في Secrets، وبعدها امسحه من الـ Terminal.
+   هيفتحلك صفحة جوجل. ادخل بحساب **قناة Family Brain Clash** واضغط Allow. على macOS، الأمر هيحط `YT_REFRESH_TOKEN` في الـ clipboard باستخدام `pbcopy` من غير ما يطبعه. الصقه في GitHub Secrets، وبعدها امسح الـ clipboard. الأمر بيتوقف بأمان لو الـ clipboard مش متاح أو لو اتشغّل داخل GitHub Actions.
 5. **قدّم على الـ API audit** من [فورم YouTube API Services](https://support.google.com/youtube/contact/yt_api_form). لحد ما الطلب يتقبل، YouTube هيحوّل كل فيديو بيترفع من الـ API إلى **Private**، وإنت هتنشره بإيدك من YouTube Studio (موضّح في الخطوة 8).
 6. وثّق القناة برقم الموبايل: **YouTube Studio ← Settings ← Channel ← Feature eligibility ← Intermediate features**. من غير التوثيق مش هتقدر ترفع thumbnails مخصوصة.
 
@@ -73,3 +73,4 @@
 ## مواعيد النشر
 - **الشورتس:** 4 مرات في اليوم: 7 الصبح، و12 الضهر، و4 العصر، و8 بالليل بتوقيت نيويورك (2 الضهر، و7 بالليل، و11 بالليل، و3 الفجر بتوقيت مصر).
 - **الفيديو الطويل:** حلقتين في الأسبوع، الأربع والسبت الساعة 10 الصبح بتوقيت نيويورك (5 العصر بتوقيت مصر). يوتيوب بياخد الحلقة كاملة، وفيسبوك وانستجرام بياخدوا تيزر Reel فيه لينك الحلقة.
+

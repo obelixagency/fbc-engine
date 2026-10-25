@@ -15,20 +15,22 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
 
 
-def _commit_push(repo: Path, msg: str) -> None:
-    _git(repo, "add", "-A")
-    st = subprocess.run(["git", "-C", str(repo), "status", "--porcelain"], capture_output=True, text=True).stdout
+def _commit_push(repo: Path, msg: str, paths: list[str]) -> None:
+    _git(repo, "add", "--", *paths)
+    st = subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--", *paths], capture_output=True, text=True).stdout
     if not st.strip():
         return
-    _git(repo, "-c", "user.name=fbc-bot", "-c", "user.email=fbc-bot@users.noreply.github.com", "commit", "-q", "-m", msg)
+    _git(repo, "-c", "user.name=fbc-bot", "-c", "user.email=fbc-bot@users.noreply.github.com", "commit", "-q", "-m", msg, "--", *paths)
     _git(repo, "pull", "-q", "--rebase", "origin", "main")
     _git(repo, "push", "-q", "origin", "HEAD:main")
 
 
 def push_public(repo: Path, path: Path, today: date, wait_s: int = 300) -> str:
+    if path.suffix.lower() not in {".mp4", ".png"}:
+        raise ValueError("Only rendered video and cover images may be publicly hosted")
     name = f"{today:%Y%m%d}_{path.name}"
     shutil.copy2(path, repo / name)
-    _commit_push(repo, f"media: {name}")
+    _commit_push(repo, f"media: {name}", [name])
     url = f"{MEDIA_BASE_URL}/{name}"
     deadline = time.time() + wait_s
     while time.time() < deadline:
@@ -43,11 +45,12 @@ def push_public(repo: Path, path: Path, today: date, wait_s: int = 300) -> str:
 
 def prune_public(repo: Path, today: date, days: int = 14) -> int:
     cutoff = (today - timedelta(days=days)).strftime("%Y%m%d")
-    removed = 0
+    removed = []
     for f in [*repo.glob("*.mp4"), *repo.glob("*.png")]:
         if f.name[:8].isdigit() and f.name[:8] < cutoff:
             f.unlink()
-            removed += 1
+            removed.append(f.name)
     if removed:
-        _commit_push(repo, f"media: prune {removed} old files")
-    return removed
+        _commit_push(repo, f"media: prune {len(removed)} old files", removed)
+    return len(removed)
+

@@ -6,7 +6,7 @@
     python -m fbc.cli publish   [--dry-run]
     python -m fbc.cli analytics [--dry-run]
     python -m fbc.cli remind                           # Sunday nudge if this week's batch PR is still open
-    python -m fbc.cli auth-youtube                     # one-time local helper that prints a refresh token
+    python -m fbc.cli auth-youtube                     # one-time local clipboard-only helper
 
 Logs are public (public repo), so this module only prints ids, counts and statuses via log.safe().
 """
@@ -28,7 +28,7 @@ from .config import CONTENT_REPO, LIMITS, env
 from .dedupe import fingerprint
 from .errors import ResumeLater
 from .generate import build_batch
-from .log import safe
+from .log import safe, error_summary
 from .models import Batch, BatchError, LongItem
 from .schedule import due_items, late_items, next_week, to_produce
 from .store import ContentRepo, plan_queue
@@ -75,9 +75,8 @@ def cmd_generate(repo: ContentRepo, week: str, dry_run: bool, today: date, gen=N
     kw = {"gen": gen} if gen else {}
     try:
         batch = build_batch(week, weights, used, episode, random.Random(week), today=today, report_md=report, **kw)
-    except Exception as e:   # private repo: the full reasons are safe there, never in public logs
-        reasons = e.problems if isinstance(e, BatchError) else [
-            f"{type(e).__name__} (http={getattr(e, 'http', None)}, reason={getattr(e, 'reason', None)}): {str(e)[:500]}"]
+    except Exception as e:   # Private issues must not contain credential-bearing diagnostics either.
+        reasons = e.problems if isinstance(e, BatchError) else [error_summary(e)]
         repo.report_issue(f"{'[dry run] ' if dry_run else ''}Batch {week} generation failed",
                           "Generation stopped before opening a PR. Reasons (first ones):\n\n"
                           + "\n".join(f"- {p}" for p in reasons)
@@ -126,7 +125,7 @@ def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
             _batch_issue(repo, week, e.problems)
             continue
         except Exception as e:  # noqa: BLE001 — any malformed edit becomes an Issue, never a stuck tick
-            _batch_issue(repo, week, [f"{type(e).__name__}: {e}"])
+            _batch_issue(repo, week, [error_summary(e)])
             continue
         items = {s.id: s for s in batch.shorts} | {lv.id: lv for lv in batch.longs}
         now = datetime.now(timezone.utc) if now_ is None else now_
@@ -297,7 +296,7 @@ def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, p
             break
         except Exception as e:  # noqa: BLE001 — recorded privately, logged by type only
             entry["produce_attempts"] = entry.get("produce_attempts", 0) + 1
-            entry["error"] = f"{type(e).__name__}: {str(e)[:1500]}"
+            entry["error"] = error_summary(e)
             if entry["produce_attempts"] >= MAX_PRODUCE_ATTEMPTS:
                 entry["status"] = "failed"
                 repo.open_issue(f"Production failed: {entry['id']}", f"`{entry['error']}`\n\nSet the entry's status back to "
@@ -412,6 +411,8 @@ def auth_youtube() -> None:
     import urllib.parse
     import webbrowser
     import requests
+    if os.environ.get("GITHUB_ACTIONS") == "true" or not _sh.which("pbcopy"):
+        raise RuntimeError("OAuth setup requires a local clipboard; token output is disabled")
     cid = os.environ.get("YT_CLIENT_ID") or input("Paste the YouTube OAuth Client ID, then Enter: ").strip()
     secret = os.environ.get("YT_CLIENT_SECRET") or getpass.getpass("Paste the Client secret (hidden), then Enter: ").strip()
     redirect = "http://localhost:8765"
@@ -434,19 +435,19 @@ def auth_youtube() -> None:
     webbrowser.open(url)
     http.server.HTTPServer(("localhost", 8765), H).handle_request()
     if "code" not in code:
-        print("Sign-in was cancelled:", code.get("error"))
+        print("Sign-in was cancelled.")
         return
     r = requests.post("https://oauth2.googleapis.com/token", data={"code": code["code"][0], "client_id": cid,
                       "client_secret": secret, "redirect_uri": redirect, "grant_type": "authorization_code"}).json()
     token = r.get("refresh_token")
     if not token:
-        print("No refresh token returned:", r.get("error"), r.get("error_description"))
+        print("No refresh token returned; check the OAuth configuration.")
         return
     if _sh.which("pbcopy"):
         _sp.run(["pbcopy"], input=token.encode(), check=True)
         print("\nOK: the refresh token is now on your clipboard. Paste it into the YT_REFRESH_TOKEN secret on GitHub.")
     else:
-        print("\nYT_REFRESH_TOKEN (paste it into GitHub Secrets, then clear this screen):\n" + token)
+        raise RuntimeError("Clipboard unavailable; token output is disabled")
 
 
 # ---------------------------------------------------------------- covers
@@ -609,3 +610,4 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

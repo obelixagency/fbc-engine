@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from ..log import safe
+from ..log import safe, error_summary
 from . import media_host, meta, youtube
 
 HASHTAGS = ["#quiz", "#trivia", "#familyfun"]
@@ -25,7 +25,7 @@ def captions(meta_: dict) -> dict:
 
 
 def _err(e: Exception) -> str:
-    return f"{type(e).__name__}: {str(e)[:300]}"
+    return error_summary(e)
 
 
 def _teaser_fb(path: Path, caption: str, link: str) -> str:
@@ -129,3 +129,4 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
     if all(p["status"] in ("published", "skipped") for p in plats.values()):
         entry["status"] = "published"
     return entry
+

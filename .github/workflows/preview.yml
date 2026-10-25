@@ -34,4 +34,6 @@ jobs:
       - env:
           GH_TOKEN: ${{ secrets.CONTENT_REPO_TOKEN }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: python -m fbc.cli thumb-preview --week ${{ inputs.week }}
+          PREVIEW_WEEK: ${{ inputs.week }}
+        run: python -m fbc.cli thumb-preview --week "$PREVIEW_WEEK"
+
