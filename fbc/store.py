@@ -180,6 +180,13 @@ class ContentRepo:
         else:
             self.run_gh("issue", "create", "-R", self.gh_repo, "--title", title, "--body", body)
 
+    def batch_pending_or_merged(self, week: str) -> bool:
+        if (self.path / "batches" / week / "batch.json").exists():
+            return True
+        r = subprocess.run(["git", "-C", str(self.path), "ls-remote", "--heads", "origin", f"batch/{week}"],
+                           capture_output=True, text=True)
+        return bool(r.stdout.strip())
+
     def open_batch_pr(self, week: str, raw: str, body_md: str) -> None:
         branch = f"batch/{week}"
         self._git("checkout", "-q", "-B", branch)

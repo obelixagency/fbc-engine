@@ -144,6 +144,7 @@ def test_daily_thumbnail_digest_lists_todays_youtube_shorts(repo):
     repo.save_queue([pub("s1", "2026-10-20T11:00:01+00:00", "AAA"), pub("s2", "2026-10-19T08:00:00+00:00", "OLD"),
                      {"id": "l1", "kind": "long", "published_at": "2026-10-20T12:00:00+00:00", "status": "published",
                       "platforms": {"youtube": {"status": "published", "ref": "LONG"}}}])
+    repo.report_issue = lambda *a: None       # the empty-schedule alarm is tested on its own
     n = cli.daily_digest(repo, datetime(2026, 10, 20, 18, 0, tzinfo=timezone.utc))
     title, body = repo.issues[0][-3], repo.issues[0][-1]
     assert n == 1 and "2026-10-20" in title
@@ -192,3 +193,23 @@ def test_an_entry_claimed_by_another_job_is_left_alone(repo):
     seen = []
     cli.produce(repo, NOW, 48, dry_run=False, producer=lambda e, *a: seen.append(e["id"]), kinds={"short"})
     assert first["id"] not in seen and seen
+
+
+def test_digest_raises_the_alarm_when_nothing_is_scheduled(repo):
+    """Regression: a batch PR sat unmerged for a week and nothing at all was published; nobody was told."""
+    calls = []
+    repo.report_issue = lambda title, body: calls.append(title)
+    repo.save_queue([{"id": "s1", "kind": "short", "status": "published", "slot_utc": "2026-11-02T01:00:00+00:00",
+                      "platforms": {"youtube": {"status": "published", "ref": "A"}}}])
+    cli.daily_digest(repo, datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc))
+    assert any("Nothing scheduled" in t for t in calls)
+    calls.clear()
+    repo.save_queue([{"id": "s2", "kind": "short", "status": "produced", "slot_utc": "2026-11-04T11:00:00+00:00",
+                      "platforms": {}}])
+    cli.daily_digest(repo, datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc))
+    assert calls == []
+
+
+def test_weekend_generation_retry_skips_a_week_that_already_has_a_batch(repo, monkeypatch):
+    repo.write_batch("2026-W46", json.dumps(make_batch()))
+    assert repo.batch_pending_or_merged("2026-W46")

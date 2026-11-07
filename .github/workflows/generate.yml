@@ -2,6 +2,8 @@ name: Generate weekly batch (opens a review PR in fbc-content)
 on:
   schedule:
     - cron: "0 7 * * 5"        # Friday 10:00 Cairo
+    - cron: "0 7 * * 6"        # Saturday retry, only if Friday's run produced nothing
+    - cron: "0 7 * * 0"        # Sunday retry, only if still nothing
     - cron: "0 17 * * 0"       # Sunday 20:00 Cairo: reminder if the PR is still open
   workflow_dispatch:
     inputs:
@@ -42,6 +44,7 @@ jobs:
           args=()
           [ -z "$GENERATE_WEEK" ] || args+=(--week "$GENERATE_WEEK")
           [ "$DRY_RUN" != "true" ] || args+=(--dry-run)
+          [ "${{ github.event_name }}" != "schedule" ] || [ "${{ github.event.schedule }}" = "0 7 * * 5" ] || args+=(--if-missing)
           python -m fbc.cli generate "${args[@]}"
       - name: Sunday reminder
         if: github.event.schedule == '0 17 * * 0'

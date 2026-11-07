@@ -482,6 +482,13 @@ def daily_digest(repo: ContentRepo, now: datetime) -> int:
             continue
         if datetime.fromisoformat(e["published_at"]) >= since:
             rows.append(f"- [ ] **{e.get('title', e['id'])}** — https://studio.youtube.com/video/{yt['ref']}/edit")
+    upcoming = [e for e in repo.queue() if e.get("status") in ("planned", "produced")
+                and now <= datetime.fromisoformat(e["slot_utc"]) <= now + timedelta(hours=36)]
+    if not upcoming:   # the week that went silent: a batch nobody merged, or one that never generated
+        repo.report_issue("⚠️ Nothing scheduled to publish in the next 36 hours",
+                          "The queue has no Short or episode in the next 36 hours. Usually the weekly batch PR is "
+                          "waiting to be merged, or its generation failed (see the other Issues).")
+        safe("schedule_gap", count=0)
     if rows:
         repo.open_issue(f"Shorts thumbnails to set — {now:%Y-%m-%d}",
                         "In YouTube Studio: open each Short → Thumbnail → pick the **first frame** (the cover). "
@@ -563,6 +570,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--id", help="queue item id (inspect)")
     ap.add_argument("--kind", choices=["short", "long"], help="produce/tick: only this kind")
+    ap.add_argument("--if-missing", action="store_true", help="generate: skip if the week already has a PR or batch")
     a = ap.parse_args(argv)
     if a.command == "auth-youtube":
         auth_youtube()
@@ -575,7 +583,11 @@ def main(argv=None) -> int:
     media = Path(a.media) if Path(a.media).exists() else None
     try:
         if a.command == "generate":
-            cmd_generate(repo, a.week or next_week(now.date()), a.dry_run, now.date())
+            week = a.week or next_week(now.date())
+            if a.if_missing and repo.batch_pending_or_merged(week):
+                safe("generate_skipped", week=week)       # Saturday/Sunday retries only fill a gap
+            else:
+                cmd_generate(repo, week, a.dry_run, now.date())
         elif a.command == "remind":
             remind(repo, a.week or next_week(now.date()))
         elif a.command == "produce":
