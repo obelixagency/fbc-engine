@@ -193,13 +193,36 @@ def _groups(req: dict, missing: list[dict]) -> list[tuple[str, list[dict]]]:
     return [(v, ls[i:i + CHUNK]) for v, ls in by_voice.items() for i in range(0, len(ls), CHUNK)]
 
 
+def _signature(line: dict, req: dict) -> str:
+    """What the cached voice of a line was made from: its words, voice, style and language."""
+    import hashlib
+    key = json.dumps([line["text"], line.get("voice") or req.get("default_voice"), line.get("style") or req.get("default_style"),
+                      line.get("lang") or req.get("lang")], ensure_ascii=False)
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def _cached(outdir: Path, line: dict, req: dict) -> bool:
+    """A cached WAV is reused only if it was voiced from exactly this text. Lines are cached by id, and an edited
+    question keeps its id, so without this check the old recording would play over the new on-screen text."""
+    wav, sig = outdir / f"{line['id']}.wav", outdir / f"{line['id']}.sig"
+    if wav.exists() and sig.exists() and sig.read_text().strip() == _signature(line, req):
+        return True
+    wav.unlink(missing_ok=True)
+    sig.unlink(missing_ok=True)
+    return False
+
+
+def _stamp(outdir: Path, line: dict, req: dict) -> None:
+    (outdir / f"{line['id']}.sig").write_text(_signature(line, req))
+
+
 def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) -> dict[str, float]:
     """Voice every line of req into outdir/<line id>.wav, a few lines per TTS call (free tier allows
     ~10 calls/day per model). Finished lines are kept, so a quota stop resumes next tick."""
     import time
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "audio_request.json").write_text(json.dumps(req, indent=2, ensure_ascii=False))
-    missing = [l for l in req["lines"] if not (outdir / f"{l['id']}.wav").exists()]
+    missing = [l for l in req["lines"] if not _cached(outdir, l, req)]
     first = True
     for voice, lines in _groups(req, missing):
         if not first and spacing_s:
@@ -214,6 +237,7 @@ def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) ->
         if ok:
             for l, d in zip(lines, dests):
                 d.rename(outdir / f"{l['id']}.wav")
+                _stamp(outdir, l, req)
             continue
         for d in dests:
             d.unlink(missing_ok=True)
@@ -224,6 +248,7 @@ def synthesize(req: dict, outdir: Path, tts=tts_wav, spacing_s: float = 21.0) ->
             part = outdir / f"{l['id']}.part.wav"
             part.write_bytes(data)
             part.rename(outdir / f"{l['id']}.wav")
+            _stamp(outdir, l, req)
     for l in req["lines"]:
         tighten(outdir / f"{l['id']}.wav")
     return {l["id"]: wav_duration(outdir / f"{l['id']}.wav") for l in req["lines"]}

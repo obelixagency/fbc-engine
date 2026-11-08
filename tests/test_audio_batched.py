@@ -170,3 +170,30 @@ def test_a_longer_pause_inside_a_line_does_not_shift_the_lines(tmp_path, batch):
     for l in req["lines"]:
         expected = 0.06 * audio._weight(l["text"])
         assert d[l["id"]] == pytest.approx(expected, rel=0.3, abs=0.4), l["id"]
+
+
+def test_an_edited_line_is_voiced_again_instead_of_reusing_the_old_recording(tmp_path, batch):
+    """Lines are cached by id; a fixed fun fact keeps its id, so the cache must notice the words changed."""
+    req = audio.build_audio_request(batch.shorts[0])
+    spoken = []
+
+    def tts(text, voice, style, model=None):
+        spoken.extend(p for p in text.split(audio.SEP) if p.strip())
+        return speech_take(text)
+    audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
+    assert len(spoken) == len(req["lines"])
+    spoken.clear()
+    audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)        # unchanged: nothing voiced again
+    assert spoken == []
+    changed = req["lines"][-2]
+    changed["text"] = "Bees visit about two million flowers to make one pound of honey."
+    audio.synthesize(req, tmp_path, tts=tts, spacing_s=0)
+    assert [p.strip() for p in spoken] == [changed["text"]]
+
+
+def test_a_cached_line_without_a_signature_is_not_trusted(tmp_path, batch):
+    req = audio.build_audio_request(batch.shorts[0])
+    line = req["lines"][0]
+    (tmp_path / f"{line['id']}.wav").write_bytes(b"old")      # from before signatures existed
+    assert not audio._cached(tmp_path, line, req)
+    assert not (tmp_path / f"{line['id']}.wav").exists()
