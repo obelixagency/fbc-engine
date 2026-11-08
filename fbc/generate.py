@@ -44,9 +44,16 @@ LONG_SCHEMA = {"type": "object", "properties": {
 
 
 def _norm(qd: dict) -> dict:
-    """Small, safe clean-ups of model output before validation (e.g. " Easy " -> "easy")."""
+    """Small, safe clean-ups of model output before validation (e.g. " Easy " -> "easy", and a "[PARENTS] " tag the
+    model sometimes writes into the question, which the video already shows as a badge)."""
+    from .timeline import strip_audience_tag
+    out = dict(qd)
     d = qd.get("difficulty")
-    return dict(qd, difficulty=d.strip().lower()) if isinstance(d, str) else dict(qd)
+    if isinstance(d, str):
+        out["difficulty"] = d.strip().lower()
+    if isinstance(qd.get("question"), str):
+        out["question"] = strip_audience_tag(qd["question"])
+    return out
 
 
 def _wk(week: str) -> str:

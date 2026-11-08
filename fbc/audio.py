@@ -3,6 +3,8 @@ line with Gemini TTS. Synthesis is resumable: finished lines are kept, so a quot
 mid-week continues on the next tick."""
 from __future__ import annotations
 
+from .timeline import strip_audience_tag
+
 import json
 import re
 import subprocess
@@ -40,9 +42,9 @@ def _short_lines(s: ShortItem) -> list[dict]:
             a, b = q.options
             lines.append(_line(f"q{n}", f"Would you rather {a.rstrip('?.').lower()}, or {b.rstrip('?.').lower()}?"))
             continue
-        spoken = q.question
+        spoken = strip_audience_tag(q.question)
         if s.format == "parents_vs_kids":
-            spoken = f"{'Parents' if n == 1 else 'Kids'}, this one's for you! {q.question}"
+            spoken = f"{'Parents' if n == 1 else 'Kids'}, this one's for you! {spoken}"
         lines.append(_line(f"q{n}", spoken))
         reveal = f"{q.answer}!" if s.format == "true_false" else _reveal(q)
         lines.append(_line(f"q{n}_reveal", reveal, style=REVEAL_STYLE))

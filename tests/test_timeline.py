@@ -110,3 +110,12 @@ def test_intro_and_round_titles_never_show_a_question_clip_unblurred(batch):
             assert bg["blur_name"], [s.kind for s in bg["segs"]]
             first_pre = min(s.start for s in bg["segs"] if s.kind in ("intro", "round_title"))
             assert bg["reveal"] is None or bg["reveal"] > first_pre
+
+
+def test_a_parents_kids_tag_in_the_question_is_not_shown_or_spoken():
+    """Regression: W46 questions arrived as '[PARENTS] Which ...' and the video showed the tag next to the badge."""
+    from fbc import audio, generate
+    assert timeline.strip_audience_tag("[PARENTS] Which paste?") == "Which paste?"
+    assert timeline.strip_audience_tag("[kids]  What has teeth?") == "What has teeth?"
+    assert timeline.strip_audience_tag("Which [KIDS] toy?") == "Which [KIDS] toy?"
+    assert generate._norm({"question": "[KIDS] What is it?"})["question"] == "What is it?"

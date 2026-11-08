@@ -2,6 +2,8 @@
 (spec §6.2 retention rules, §7 formats). The timing is built from the real audio lengths."""
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, field
 
 from .models import LongItem, ShortItem
@@ -59,11 +61,19 @@ READ_PAD, REVEAL_PAD, OUTRO_MAX = 0.25, 0.5, 3.0
 WYR_VOTE = 5.0
 
 
+
+_AUDIENCE_TAG = re.compile(r"^\s*\[(?:PARENTS|KIDS|GROWN-?UPS|ADULTS)\]\s*", re.IGNORECASE)
+
+
+def strip_audience_tag(text: str) -> str:
+    """'[PARENTS] Which ...' -> 'Which ...': the Parents/Kids badge already says who the question is for."""
+    return _AUDIENCE_TAG.sub("", text)
+
 def _question_segment(kind, q, t, qd, rd, countdown, reveal_extra, clip, n, total, label=""):
     read_end = t + qd + READ_PAD
     seg = Segment(kind, t, 0, clip=clip)
     seg.audio.append((f"{q['line']}.wav", t))
-    seg.data = {"question": q["q"].question, "options": q["q"].options, "answer_index": q["q"].answer_index,
+    seg.data = {"question": strip_audience_tag(q["q"].question), "options": q["q"].options, "answer_index": q["q"].answer_index,
                 "answer": q["q"].answer, "fun_fact": q["q"].fun_fact, "n": n, "total": total, "label": label,
                 "difficulty": q["q"].difficulty}
     if kind == "wyr":
