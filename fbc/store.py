@@ -124,6 +124,14 @@ class ContentRepo:
     def _git(self, *args: str) -> str:
         return subprocess.run(["git", "-C", str(self.path), *args], capture_output=True, text=True, check=True).stdout
 
+    def reset_to_remote(self) -> None:
+        """Drop unpushed local queue commits and match origin/main (best effort offline)."""
+        try:
+            self._git("fetch", "-q", "origin", "main")
+            self._git("reset", "-q", "--hard", "origin/main")
+        except subprocess.CalledProcessError:
+            subprocess.run(["git", "-C", str(self.path), "rebase", "--abort"], capture_output=True)
+
     def sync(self) -> None:
         """Bring the checkout up to date before a read-modify-write (best effort: offline tests have no remote)."""
         try:

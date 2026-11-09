@@ -235,3 +235,18 @@ def test_a_system_user_token_is_turned_into_the_page_token(monkeypatch):
     monkeypatch.setattr(meta.requests, "get", get)
     assert meta.page_token() == "PAGE-TOKEN"
     assert seen == ["me", "PAGE1"]
+
+
+def test_media_host_starts_a_fresh_pages_deployment_when_the_first_one_never_serves(monkeypatch, tmp_path):
+    """Regression: a Pages deployment timed out; every retry found nothing new to push and Instagram failed 13 times."""
+    from datetime import date
+    from fbc.publish import media_host
+    calls, served = [], iter([False, True])
+    monkeypatch.setattr(media_host, "_commit_push", lambda *a: calls.append("push"))
+    monkeypatch.setattr(media_host, "_git", lambda repo, *args: calls.append(args[-1] if args[0] != "-c" else "empty-commit"))
+    monkeypatch.setattr(media_host, "_served", lambda url, wait: next(served))
+    f = tmp_path / "v.mp4"
+    f.write_bytes(b"x")
+    (tmp_path / "repo").mkdir()
+    url = media_host.push_public(tmp_path / "repo", f, date(2026, 11, 9))
+    assert url.endswith("20261109_v.mp4") and "empty-commit" in calls

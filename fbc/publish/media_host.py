@@ -32,25 +32,26 @@ def push_public(repo: Path, path: Path, today: date, wait_s: int = 300) -> str:
     shutil.copy2(path, repo / name)
     _commit_push(repo, f"media: {name}", [name])
     url = f"{MEDIA_BASE_URL}/{name}"
+    if _served(url, wait_s):
+        return url
+    # GitHub Pages sometimes drops a deployment ("Timeout reached, aborting!"): the file is committed but never
+    # served, and a retry finds nothing new to push. An empty commit starts a fresh deployment.
+    _git(repo, "-c", "user.name=fbc-bot", "-c", "user.email=fbc-bot@users.noreply.github.com",
+         "commit", "-q", "--allow-empty", "-m", f"redeploy Pages for {name}")
+    _git(repo, "pull", "-q", "--rebase", "origin", "main")
+    _git(repo, "push", "-q", "origin", "HEAD:main")
+    if _served(url, wait_s):
+        return url
+    raise RuntimeError("GitHub Pages did not serve the media file in time")
+
+
+def _served(url: str, wait_s: int) -> bool:
     deadline = time.time() + wait_s
     while time.time() < deadline:
         try:
             if requests.head(url, timeout=15).status_code == 200:
-                return url
+                return True
         except requests.RequestException:
             pass
         time.sleep(10)
-    raise RuntimeError("GitHub Pages did not serve the media file in time")
-
-
-def prune_public(repo: Path, today: date, days: int = 14) -> int:
-    cutoff = (today - timedelta(days=days)).strftime("%Y%m%d")
-    removed = []
-    for f in [*repo.glob("*.mp4"), *repo.glob("*.png")]:
-        if f.name[:8].isdigit() and f.name[:8] < cutoff:
-            f.unlink()
-            removed.append(f.name)
-    if removed:
-        _commit_push(repo, f"media: prune {len(removed)} old files", removed)
-    return len(removed)
-
+    return False

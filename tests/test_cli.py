@@ -213,3 +213,24 @@ def test_digest_raises_the_alarm_when_nothing_is_scheduled(repo):
 def test_weekend_generation_retry_skips_a_week_that_already_has_a_batch(repo, monkeypatch):
     repo.write_batch("2026-W46", json.dumps(make_batch()))
     assert repo.batch_pending_or_merged("2026-W46")
+
+
+def test_storing_an_entry_retries_when_the_push_loses_a_race(repo, monkeypatch):
+    """Regression: an episode rendered for 2.5 h, then its queue update failed to push while the tick loop was
+    committing every few minutes; the video was uploaded but the queue never learned about it."""
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    cli.intake(repo, NOW.date(), NOW)
+    entry = dict(repo.queue()[0], status="produced", asset="x.mp4")
+    real = repo.commit_and_push
+    fails = {"n": 2}
+
+    def flaky(msg):
+        if fails["n"]:
+            fails["n"] -= 1
+            raise RuntimeError("could not push to the content repo")
+        return real(msg)
+    monkeypatch.setattr(repo, "commit_and_push", flaky)
+    monkeypatch.setattr(repo, "reset_to_remote", lambda: None)
+    monkeypatch.setattr(cli.time if hasattr(cli, "time") else __import__("time"), "sleep", lambda s: None)
+    cli._store_entry(repo, entry, "produce: x")
+    assert repo.queue()[0]["status"] == "produced" and fails["n"] == 0

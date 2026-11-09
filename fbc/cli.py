@@ -246,17 +246,29 @@ PRODUCE_BUDGET_S = 40 * 60   # stop starting new renders after 40 min so the nex
 CLAIM_H = {"short": 1, "long": 5}   # a claim older than this is abandoned (its job died or was killed)
 
 
-def _store_entry(repo: ContentRepo, entry: dict, message: str) -> None:
+def _store_entry(repo: ContentRepo, entry: dict, message: str, tries: int = 8) -> None:
     """Write back ONE entry onto the freshest queue: another job may have published other items meanwhile,
-    so a whole-queue snapshot taken before a long render must never be saved over them."""
-    repo.sync()
-    queue = repo.queue()
-    for i, e in enumerate(queue):
-        if e["id"] == entry["id"]:
-            queue[i] = entry
-            break
-    repo.save_queue(queue)
-    repo.commit_and_push(message)
+    so a whole-queue snapshot taken before a long render must never be saved over them. The tick loop commits
+    every few minutes, so a push can lose the race: each retry starts again from the latest queue."""
+    import time as _time
+    for attempt in range(tries):
+        if attempt == 0:
+            repo.sync()             # keeps local uncommitted work (e.g. a fresh intake) in the same commit
+        else:
+            repo.reset_to_remote()  # a lost race: start over from the latest queue (intake re-runs next tick)
+        queue = repo.queue()
+        for i, e in enumerate(queue):
+            if e["id"] == entry["id"]:
+                queue[i] = entry
+                break
+        repo.save_queue(queue)
+        try:
+            repo.commit_and_push(message)
+            return
+        except RuntimeError:
+            if attempt == tries - 1:
+                raise
+            _time.sleep(5 + 5 * attempt)
 
 
 def produce(repo: ContentRepo, now: datetime, horizon_h: float, dry_run: bool, producer=produce_entry,
