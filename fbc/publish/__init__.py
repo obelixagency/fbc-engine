@@ -16,7 +16,7 @@ YT_TAGS = ["family quiz", "trivia", "quiz", "brain teasers", "riddles", "family 
 def captions(meta_: dict) -> dict:
     desc = meta_["description"].strip()
     if meta_["is_short"]:
-        yt = f"{desc}\n\nNew Family Quiz Night every Saturday on our channel!\n\n{' '.join(HASHTAGS)}"
+        yt = f"{desc}\n\nNew Family Quiz Night every Wednesday and Saturday on our channel!\n\n{' '.join(HASHTAGS)}"
     else:
         chapters = "\n".join(meta_.get("chapters", []))
         yt = f"{desc}\n\n{chapters}\n\n{' '.join(HASHTAGS)}".strip()

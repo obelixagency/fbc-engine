@@ -64,7 +64,7 @@ def _long_lines(item: LongItem) -> list[dict]:
     lines.append(_line("bonus", f"Bonus question! Worth one extra point. {item.bonus.question}"))
     lines.append(_line("bonus_reveal", _reveal(item.bonus), voice=REVEAL_VOICE, style=REVEAL_STYLE))
     lines.append(_line("outro", "Add up your points! Who's the family champion? Tell us your scores in the "
-                                "comments, and subscribe for a new quiz night every Saturday!"))
+                                "comments, and subscribe for new quiz nights every Wednesday and Saturday!"))
     return lines
 
 
