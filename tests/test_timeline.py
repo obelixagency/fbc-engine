@@ -142,3 +142,16 @@ def test_a_would_you_rather_background_is_blurred_only_during_the_hook(batch):
         if any(sg.kind == "hook" for sg in bg["segs"]) and any(sg.kind == "wyr" for sg in bg["segs"]):
             hook_end = max(sg.end for sg in bg["segs"] if sg.kind == "hook")
             assert bg["blur_name"] and bg["reveal"] == pytest.approx(hook_end, abs=1e-3)
+
+
+def test_a_zoom_reveal_starts_zoomed_in_even_when_the_hook_shares_its_clip(batch):
+    """Regression: the zoom-out tween only looked at the first scene of a background, which is the hook, so the
+    zebra was shown whole from the very first second."""
+    from fbc import render
+    s = _short_of(batch, "zoom_reveal")
+    tl = timeline.build_short_timeline(s, durs(s), clips(s))
+    bgs = render._backgrounds(tl)
+    acts = render.build_actions(tl, bgs)
+    i = next(k for k, bg in enumerate(bgs) if any(sg.kind == "zoom" for sg in bg["segs"]))
+    zoom = [a for a in acts if a["sel"] == f"#bgw{i}" and a.get("from", {}).get("scale") == 4]
+    assert zoom and zoom[0]["t"] == bgs[i]["start"]

@@ -96,9 +96,11 @@ def build_actions(tl: Timeline, backgrounds: list[dict]) -> list[dict]:
 
     add("fromTo", "#progress", 0, {"scaleX": 1, "duration": tl.duration, "ease": "none"}, {"scaleX": 0})
     for i, bg in enumerate(backgrounds):
-        sel, seg0 = f"#bgw{i}", bg["segs"][0]
-        if seg0.kind == "zoom" and seg0.data.get("reveal_at"):
-            add("fromTo", sel, bg["start"], {"scale": 1, "duration": seg0.data["reveal_at"] - bg["start"],
+        sel = f"#bgw{i}"
+        # the hook shares the zoom clip, so the zoom question is not always the first scene of this background
+        zseg = next((sg for sg in bg["segs"] if sg.kind == "zoom" and sg.data.get("reveal_at")), None)
+        if zseg:
+            add("fromTo", sel, bg["start"], {"scale": 1, "duration": zseg.data["reveal_at"] - bg["start"],
                                               "ease": "power1.inOut"}, {"scale": 4})
         else:
             grow = 1.12 if bg["kind"] == "photo" else 1.06
