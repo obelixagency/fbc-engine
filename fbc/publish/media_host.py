@@ -55,3 +55,16 @@ def _served(url: str, wait_s: int) -> bool:
             pass
         time.sleep(10)
     return False
+
+
+def prune_public(repo: Path, today: date, days: int = 14) -> int:
+    cutoff = (today - timedelta(days=days)).strftime("%Y%m%d")
+    removed = []
+    for f in [*repo.glob("*.mp4"), *repo.glob("*.png")]:
+        if f.name[:8].isdigit() and f.name[:8] < cutoff:
+            f.unlink()
+            removed.append(f.name)
+    if removed:
+        _commit_push(repo, f"media: prune {len(removed)} old files", removed)
+    return len(removed)
+

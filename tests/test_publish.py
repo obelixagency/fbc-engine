@@ -250,3 +250,9 @@ def test_media_host_starts_a_fresh_pages_deployment_when_the_first_one_never_ser
     (tmp_path / "repo").mkdir()
     url = media_host.push_public(tmp_path / "repo", f, date(2026, 11, 9))
     assert url.endswith("20261109_v.mp4") and "empty-commit" in calls
+
+
+def test_media_host_still_offers_everything_the_publisher_calls():
+    """Regression: an edit of push_public cut off prune_public; every tick then died before producing any Short."""
+    from fbc.publish import media_host
+    assert callable(media_host.push_public) and callable(media_host.prune_public)

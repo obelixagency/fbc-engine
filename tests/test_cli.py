@@ -234,3 +234,18 @@ def test_storing_an_entry_retries_when_the_push_loses_a_race(repo, monkeypatch):
     monkeypatch.setattr(cli.time if hasattr(cli, "time") else __import__("time"), "sleep", lambda s: None)
     cli._store_entry(repo, entry, "produce: x")
     assert repo.queue()[0]["status"] == "produced" and fails["n"] == 0
+
+
+def test_a_full_tick_runs_end_to_end_without_touching_the_network(repo, monkeypatch, tmp_path):
+    """Smoke test of the real tick path (publish → escalate → produce → publish) with every outside call stubbed,
+    so a broken name anywhere on that path fails here instead of silently on the server for days."""
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    from fbc.publish import media_host
+    monkeypatch.setattr(media_host, "prune_public", lambda *a, **k: 0)
+    monkeypatch.setattr(cli, "produce_entry", lambda entry, batch, r, today: entry.update(status="produced"))
+    monkeypatch.setattr(repo, "open_issue", lambda *a, **k: None)
+    monkeypatch.setattr(repo, "report_issue", lambda *a, **k: None)
+    cli.publish(repo, NOW, tmp_path, False)
+    cli.escalate(repo, NOW, False)
+    cli.produce(repo, NOW, 48, False, producer=cli.produce_entry, kinds={"short"})
+    assert any(e["status"] == "produced" for e in repo.queue())
