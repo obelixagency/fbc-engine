@@ -119,3 +119,26 @@ def test_a_parents_kids_tag_in_the_question_is_not_shown_or_spoken():
     assert timeline.strip_audience_tag("[kids]  What has teeth?") == "What has teeth?"
     assert timeline.strip_audience_tag("Which [KIDS] toy?") == "Which [KIDS] toy?"
     assert generate._norm({"question": "[KIDS] What is it?"})["question"] == "What is it?"
+
+
+def _short_of(batch, fmt):
+    return next(s for s in batch.shorts if s.format == fmt)
+
+
+def test_a_zoom_reveal_picture_is_never_covered_by_the_blur(batch):
+    """Regression: the hook shares the zoom clip, so the 'blur pre-question scenes' rule covered the zoomed picture
+    for the whole Short: the viewer never saw what they were meant to guess, not even after the reveal."""
+    from fbc import render
+    s = _short_of(batch, "zoom_reveal")
+    bgs = render._backgrounds(timeline.build_short_timeline(s, durs(s), clips(s)))
+    assert bgs and all(bg["blur_name"] is None for bg in bgs if any(sg.kind == "zoom" for sg in bg["segs"]))
+
+
+def test_a_would_you_rather_background_is_blurred_only_during_the_hook(batch):
+    from fbc import render
+    s = _short_of(batch, "would_you_rather")
+    tl = timeline.build_short_timeline(s, durs(s), clips(s))
+    for bg in render._backgrounds(tl):
+        if any(sg.kind == "hook" for sg in bg["segs"]) and any(sg.kind == "wyr" for sg in bg["segs"]):
+            hook_end = max(sg.end for sg in bg["segs"] if sg.kind == "hook")
+            assert bg["blur_name"] and bg["reveal"] == pytest.approx(hook_end, abs=1e-3)

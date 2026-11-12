@@ -73,8 +73,13 @@ def _backgrounds(tl: Timeline) -> list[dict]:
         reveals = [sg.data["reveal_at"] for sg in bg["segs"]
                    if sg.kind in HIDE_UNTIL_REVEAL and sg.data.get("reveal_at")]
         bg["reveal"] = round(min(reveals), 3) if reveals else None
-        # intro / round title / hook scenes borrow the clip of a question that is not asked yet: keep it blurred
-        early = any(sg.kind in PRE_QUESTION for sg in bg["segs"])
+        # intro / round title / hook scenes borrow the clip of a question that is not asked yet: keep it blurred.
+        # Not for a zoom reveal, where the zoomed-in picture IS the question; and when the clip's own question
+        # does not hide its picture (would-you-rather), the blur lifts as soon as the hook is over.
+        pre = [sg for sg in bg["segs"] if sg.kind in PRE_QUESTION]
+        early = bool(pre) and not any(sg.kind == "zoom" for sg in bg["segs"])
+        if early and not reveals and any(sg.kind in QUESTION_KINDS for sg in bg["segs"]):
+            bg["reveal"] = round(max(sg.end for sg in pre), 3)
         # a blurred STILL (not a second video): half the decoding work for the renderer on long episodes
         bg["blur_name"] = f"blur_{Path(bg['name']).stem}.jpg" if reveals or early else None
     return out
