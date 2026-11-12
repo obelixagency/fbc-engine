@@ -178,3 +178,13 @@ def test_deleting_a_short_in_review_is_allowed():
     b = make_batch()
     b["shorts"].pop(3)
     assert len(parse_batch(json.dumps(b)).shorts) == 13
+
+
+def test_zoom_reveal_takes_the_subject_photo_even_when_some_video_matches(monkeypatch):
+    """Regression: 'baseball red stitches macro' matched an aerial soccer-pitch video, shown under a question whose
+    options included 'Soccer ball'. A zoom reveal now asks for the subject photo first."""
+    from fbc import pexels
+    monkeypatch.setattr(pexels, "_videos", lambda q, o, ex: pexels.Clip("video", 1, "u", 1, 1))
+    monkeypatch.setattr(pexels, "_photo", lambda q, o, ex: pexels.Clip("photo", 2, "u", 1, 1))
+    assert pexels.find_clip("baseball", "portrait", set(), subject_required=True).kind == "photo"
+    assert pexels.find_clip("baseball", "portrait", set()).kind == "video"
