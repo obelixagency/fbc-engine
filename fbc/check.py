@@ -120,6 +120,23 @@ def check_fb_insights() -> None:
         _meta_reason)
 
 
+def check_fb_reel_insights() -> None:
+    """Plays of the latest Reel on the Page (what analytics collects for Facebook)."""
+    token = _ig_token()
+    vids = _need_ok(requests.get(f"{GRAPH}/{env('FB_PAGE_ID')}/video_reels", params={
+        "fields": "id", "limit": 1, "access_token": token}, timeout=30), _meta_reason).get("data") or []
+    if not vids:
+        raise CheckFailed(200, "no_reels_yet")
+    r = requests.get(f"{GRAPH}/{vids[0]['id']}/video_insights", params={
+        "metric": "blue_reels_play_count,post_video_avg_time_watched", "access_token": token}, timeout=30)
+    d = r.json()
+    if r.status_code >= 400 or "error" in d:   # Meta's message names the bad metric or missing permission
+        e = d.get("error") or {}
+        raise CheckFailed(r.status_code, f"code_{e.get('code')}: {str(e.get('message', ''))[:120]}")
+    if not d.get("data"):
+        raise CheckFailed(r.status_code, "no_metrics_returned")
+
+
 def check_pexels() -> None:
     _need_ok(requests.get(PEXELS, headers={"Authorization": env("PEXELS_API_KEY")},
                           params={"query": "quiz", "per_page": 1}, timeout=30))
@@ -136,6 +153,7 @@ def check_github(run=subprocess.run) -> None:
 
 CHECKS = {"youtube": check_youtube, "facebook": check_facebook, "instagram": check_instagram,
           "instagram_insights": check_ig_insights, "facebook_insights": check_fb_insights,
+          "facebook_reel_insights": check_fb_reel_insights,
           "pexels": check_pexels, "github": check_github}
 
 
