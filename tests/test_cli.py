@@ -249,3 +249,16 @@ def test_a_full_tick_runs_end_to_end_without_touching_the_network(repo, monkeypa
     cli.escalate(repo, NOW, False)
     cli.produce(repo, NOW, 48, False, producer=cli.produce_entry, kinds={"short"})
     assert any(e["status"] == "produced" for e in repo.queue())
+
+
+def test_a_batch_merged_mid_week_moves_up_into_the_slots_still_ahead(repo):
+    """Regression: W47 was merged on Tuesday; its first six Shorts were skipped and the rest kept their days.
+    Now the batch fills the remaining slots in order and only the overflow at the end is skipped."""
+    repo.write_batch("2026-W44", json.dumps(make_batch()))
+    mid = datetime(2026, 10, 27, 19, 0, tzinfo=timezone.utc)          # Tuesday of W44, 15:00 ET
+    cli.intake(repo, mid.date(), mid)
+    q = [e for e in repo.queue() if e["kind"] == "short"]
+    live = [e for e in q if e["status"] == "planned"]
+    assert live and all(datetime.fromisoformat(e["slot_utc"]) >= mid for e in live)
+    assert live[0]["id"].endswith("_00")                             # the first Short is not wasted
+    assert all(e.get("slot_local") for e in live)

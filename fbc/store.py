@@ -3,10 +3,12 @@ Rendered MP4s live as release assets of that private repo (one release per week)
 from __future__ import annotations
 
 import json
+from zoneinfo import ZoneInfo
 import subprocess
 from datetime import date, timedelta
 from pathlib import Path
 
+from .config import TZ_ET
 from .models import Batch, parse_batch
 from .schedule import week_slots
 
@@ -29,7 +31,8 @@ def plan_queue(batch: Batch) -> list[dict]:
         if item is None:      # an older batch with fewer Shorts than slots: leave the rest empty
             continue
         item_id = item.id
-        q.append({"id": item_id, "kind": kind, "week": batch.week, "slot_utc": at.isoformat(), "status": "planned",
+        q.append({"id": item_id, "kind": kind, "week": batch.week, "slot_utc": at.isoformat(),
+                  "slot_local": at.astimezone(ZoneInfo(TZ_ET)).strftime("%H:%M"), "status": "planned",
                   "asset": None, "platforms": {p: {"status": "pending", "ref": None, "error": None, "attempts": 0}
                                                for p in PLATFORMS}})
     return q

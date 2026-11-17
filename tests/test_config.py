@@ -18,5 +18,5 @@ def test_brand_tokens():
         "navy": "#16133F", "yellow": "#FFD23F", "pink": "#FF3E7F",
         "green": "#2EE59D", "white": "#FFFFFF",
     }
-    assert config.SHORT_SLOTS_ET == ["07:00", "12:00", "16:00", "20:00"]
+    assert config.SHORT_SLOTS_ET == ["07:00", "12:00", "16:00", "18:00"]
     assert config.LONG_SLOTS_ET == [("WED", "10:00"), ("SAT", "10:00")]

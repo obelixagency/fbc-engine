@@ -108,6 +108,22 @@ def _batch_issue(repo: ContentRepo, week: str, problems: list[str]) -> None:
     safe("batch_invalid", week=week, count=len(problems))
 
 
+def _fill_future_slots(entries: list[dict], now: datetime) -> list[dict]:
+    """A batch merged after its week started: its items move up into the slots still ahead, in batch order, and
+    only what does not fit is skipped (never dump late videos at once, and don't waste the first ones)."""
+    out = []
+    for kind in ("short", "long"):
+        mine = [e for e in entries if e["kind"] == kind]
+        ahead = [(e["slot_utc"], e.get("slot_local")) for e in mine if datetime.fromisoformat(e["slot_utc"]) >= now]
+        for k, e in enumerate(mine):
+            if k < len(ahead):
+                e["slot_utc"], e["slot_local"] = ahead[k]
+            else:
+                e["status"] = "skipped"
+            out.append(e)
+    return sorted(out, key=lambda e: e["slot_utc"])
+
+
 def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
     """Queue every merged batch that is not queued yet. A broken batch opens an Issue instead."""
     queue = repo.queue()
@@ -129,10 +145,9 @@ def intake(repo: ContentRepo, today: date, now_: datetime | None = None) -> int:
             continue
         items = {s.id: s for s in batch.shorts} | {lv.id: lv for lv in batch.longs}
         now = datetime.now(timezone.utc) if now_ is None else now_
+        entries = _fill_future_slots(entries, now)
         for entry in entries:
             entry.update(_item_meta(batch, items[entry["id"]]))
-            if datetime.fromisoformat(entry["slot_utc"]) < now:
-                entry["status"] = "skipped"   # batch merged after this slot: never dump late videos at once
             queue.append(entry)
             added += 1
         repo.append_used([{"question": q.question, "answer": q.answer, "fingerprint": fingerprint(q.question, q.answer),

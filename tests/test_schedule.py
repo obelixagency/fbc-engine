@@ -13,7 +13,7 @@ def test_week_slots_across_dst():
     longs = [t for k, t in slots if k == "long"]
     assert len(shorts) == 28 and len(longs) == 2
     local = [t.astimezone(ET) for t in shorts]
-    assert {(t.hour, t.minute) for t in local} == {(7, 0), (12, 0), (16, 0), (20, 0)}
+    assert {(t.hour, t.minute) for t in local} == {(7, 0), (12, 0), (16, 0), (18, 0)}
     assert len(set(shorts)) == 28
     assert local[-1].date().isoformat() == "2026-11-01"
     assert longs[-1].astimezone(ET).strftime("%a %H:%M") == "Sat 10:00"
