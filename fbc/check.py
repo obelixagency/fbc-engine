@@ -101,6 +101,24 @@ def check_instagram() -> None:
         raise CheckFailed(200, "no_instagram_account")
 
 
+def check_ig_insights() -> None:
+    """Reach/views of the latest Reel: needs the instagram_manage_insights permission on the token."""
+    token = _ig_token()
+    media = _need_ok(requests.get(f"{GRAPH}/{env('IG_USER_ID')}/media", params={
+        "fields": "id", "limit": 1, "access_token": token}, timeout=30), _meta_reason).get("data") or []
+    if not media:
+        raise CheckFailed(200, "no_media_yet")
+    _need_ok(requests.get(f"{GRAPH}/{media[0]['id']}/insights", params={
+        "metric": "views,reach", "access_token": token}, timeout=30), _meta_reason)
+
+
+def check_fb_insights() -> None:
+    """Page reach: needs the read_insights permission on the token."""
+    _need_ok(requests.get(f"{GRAPH}/{env('FB_PAGE_ID')}/insights", params={
+        "metric": "page_impressions_unique", "period": "day", "access_token": _ig_token()}, timeout=30),
+        _meta_reason)
+
+
 def check_pexels() -> None:
     _need_ok(requests.get(PEXELS, headers={"Authorization": env("PEXELS_API_KEY")},
                           params={"query": "quiz", "per_page": 1}, timeout=30))
@@ -116,6 +134,7 @@ def check_github(run=subprocess.run) -> None:
 
 
 CHECKS = {"youtube": check_youtube, "facebook": check_facebook, "instagram": check_instagram,
+          "instagram_insights": check_ig_insights, "facebook_insights": check_fb_insights,
           "pexels": check_pexels, "github": check_github}
 
 

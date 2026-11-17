@@ -6,6 +6,8 @@ from datetime import date, datetime, timedelta
 
 import requests
 
+from .log import safe
+
 from .config import env
 from .weights import score_video, update_weights
 
@@ -38,6 +40,9 @@ def fetch_instagram(media_id: str, duration: float) -> dict | None:
         "metric": "views,likes,comments,shares,ig_reels_avg_watch_time", "access_token": _meta_token()})
     data = r.json()
     if r.status_code >= 400 or "data" not in data:
+        err = data.get("error") if isinstance(data, dict) else None
+        safe("ig_insights_failed", http=r.status_code,
+             reason=f"code_{err.get('code')}" if isinstance(err, dict) else None)   # usually a missing permission
         return None
     m = {d["name"]: (d.get("values") or [{}])[0].get("value", 0) for d in data["data"]}
     views = m.get("views") or 0
