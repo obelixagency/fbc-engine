@@ -135,6 +135,8 @@ def check_fb_reel_insights() -> None:
         raise CheckFailed(r.status_code, f"code_{e.get('code')}: {str(e.get('message', ''))[:120]}")
     if not d.get("data"):
         raise CheckFailed(r.status_code, "no_metrics_returned")
+    safe("fb_reel_probe", reel=vids[0]["id"], metrics={m["name"]: (m.get("values") or [{}])[0].get("value")
+                                                         for m in d["data"]})
 
 
 def check_pexels() -> None:
