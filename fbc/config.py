@@ -15,6 +15,8 @@ OVERLAY = "rgba(22,19,63,0.5)"
 SHORT_SLOTS_ET = ["07:00", "12:00", "16:00", "18:00"]
 SHORTS_PER_WEEK = 7 * len(SHORT_SLOTS_ET)
 # Two Family Quiz Night episodes a week; Facebook/Instagram get a teaser Reel that links to each one on YouTube.
+# One Short a day is also posted as an Instagram Story: the slot with the best reach (Nov review: 16:00 ET).
+STORY_SLOT_ET = "16:00"
 LONG_SLOTS_ET = [("WED", "10:00"), ("SAT", "10:00")]
 TZ_ET = "America/New_York"
 

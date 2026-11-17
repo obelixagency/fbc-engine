@@ -100,6 +100,16 @@ def ig_reel(public_url: str, caption: str, thumb_offset_ms: int | None = None, c
                                 timeout=60))["id"]
 
 
+def ig_story(public_url: str) -> str:
+    """The same vertical video as an Instagram Story (followers see it again at the top of their app)."""
+    ig_id, token = env("IG_USER_ID"), page_token()
+    c = _check(requests.post(f"{GRAPH}/{ig_id}/media", data={"media_type": "STORIES", "video_url": public_url,
+                                                            "access_token": token}, timeout=60))
+    _ig_wait(c["id"], token)
+    return _check(requests.post(f"{GRAPH}/{ig_id}/media_publish", data={"creation_id": c["id"], "access_token": token},
+                                timeout=60))["id"]
+
+
 def fb_thumbnail(video_id: str, png: Path) -> None:
     """Preferred thumbnail for a Page video/Reel."""
     token = page_token()

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from . import analytics as an
 from .audio import build_audio_request, make_sfx, synthesize
-from .config import CONTENT_REPO, LIMITS, env
+from .config import CONTENT_REPO, LIMITS, STORY_SLOT_ET, env
 from .dedupe import fingerprint
 from .errors import ResumeLater
 from .generate import build_batch
@@ -364,7 +364,8 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
         thumbs = [repo.download_asset(entry["week"], t, dl) for t in entry.get("thumbnails", [])]
         meta = {"title": entry["title"], "description": entry["description"], "first_comment": entry["first_comment"],
                 "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs,
-                "format": entry.get("format")}
+                "format": entry.get("format"),
+                "story": entry["kind"] == "short" and an._slot_et(entry) == STORY_SLOT_ET}
         if entry.get("teaser_asset"):
             meta["teaser"] = repo.download_asset(entry["week"], entry["teaser_asset"], dl)
         if entry["kind"] == "short" and thumbs:

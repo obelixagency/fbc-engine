@@ -256,3 +256,44 @@ def test_media_host_still_offers_everything_the_publisher_calls():
     """Regression: an edit of push_public cut off prune_public; every tick then died before producing any Short."""
     from fbc.publish import media_host
     assert callable(media_host.push_public) and callable(media_host.prune_public)
+
+
+def _short_mocks(monkeypatch, story_calls, story_fails=False):
+    monkeypatch.setattr(youtube, "access_token", lambda: "t")
+    monkeypatch.setattr(youtube, "upload_video", lambda *a, **k: {"id": "yt1", "privacy": "public"})
+    monkeypatch.setattr(youtube, "add_comment", lambda *a, **k: "c")
+    monkeypatch.setattr(meta, "fb_reel", lambda *a: "fb1")
+    monkeypatch.setattr(meta, "fb_comment", lambda *a: "c")
+    monkeypatch.setattr(publish.media_host, "push_public", lambda *a: "u")
+    monkeypatch.setattr(meta, "ig_reel", lambda *a, **k: "ig1")
+    monkeypatch.setattr(meta, "ig_comment", lambda *a: "c")
+
+    def story(url):
+        story_calls.append(url)
+        if story_fails:
+            raise meta.MetaError("story")
+        return "st1"
+    monkeypatch.setattr(meta, "ig_story", story)
+
+
+def test_story_only_when_asked_and_never_blocks_the_reel(monkeypatch, tmp_path):
+    calls = []
+    _short_mocks(monkeypatch, calls)
+    e = publish.publish_item(entry(), META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert calls == [] and e["status"] == "published"
+    e = publish.publish_item(entry(), {**META, "story": True}, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert calls == ["u"] and e["platforms"]["instagram"]["story"] == "st1"
+    calls.clear(); _short_mocks(monkeypatch, calls, story_fails=True)
+    e = publish.publish_item(entry(), {**META, "story": True}, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert e["platforms"]["instagram"]["status"] == "published" and e["platforms"]["instagram"]["note"]
+
+
+def test_failed_meta_comment_is_noted_not_hidden(monkeypatch, tmp_path):
+    _short_mocks(monkeypatch, [])
+    def boom(*a):
+        raise meta.MetaError("no permission")
+    monkeypatch.setattr(meta, "ig_comment", boom)
+    monkeypatch.setattr(meta, "fb_comment", boom)
+    e = publish.publish_item(entry(), META, tmp_path / "v.mp4", tmp_path, date(2026, 10, 27))
+    assert e["platforms"]["instagram"]["note"] and e["platforms"]["facebook"]["note"]
+    assert e["status"] == "published"

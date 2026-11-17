@@ -127,6 +127,11 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
                 meta.ig_comment(mid, meta_["first_comment"])
             except Exception as e:   # needs instagram_manage_comments; never blocks the post, but is visible
                 plats["instagram"]["note"] = _err(e)
+        if meta_.get("story"):
+            try:
+                plats["instagram"]["story"] = meta.ig_story(url)
+            except Exception as e:   # a Story never blocks the Reel
+                plats["instagram"]["note"] = _err(e)
         return mid
 
     run("youtube", yt)
