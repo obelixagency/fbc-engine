@@ -13,14 +13,33 @@ SOCIAL_TAGS = "#quiz #trivia #familyfun #brainteasers #quiznight #familygamenigh
 YT_TAGS = ["family quiz", "trivia", "quiz", "brain teasers", "riddles", "family game night", "general knowledge"]
 
 
+# One comment prompt per format: an easy, specific reply ("T or F", "A or B", "2/3") gets far more comments than
+# a generic "let us know", and comments plus tags/shares are what Reels and Shorts rank on.
+CTA = {
+    "true_false": "Comment your score out of 5 👇 Then tag the family member you think would lose!",
+    "three_q": "How many did you get out of 3? Comment below 👇 Tag someone to beat your score!",
+    "zoom_reveal": "Comment your guess BEFORE the zoom-out 👇 Tag someone who'd get it wrong!",
+    "riddle": "Comment your answer before the reveal, no peeking 👇 Tag your smartest family member!",
+    "parents_vs_kids": "Who won in your house: parents or kids? Comment 👇 and send this to your family group chat!",
+    "would_you_rather": "Comment A or B 👇 Then tag someone and see if they pick the same!",
+}
+LONG_CTA = "Play along and comment your family's final score 👇 Share it with someone you'd challenge!"
+
+
+def cta(meta_: dict) -> str:
+    return CTA.get(meta_.get("format") or "", CTA["three_q"]) if meta_["is_short"] else LONG_CTA
+
+
 def captions(meta_: dict) -> dict:
     desc = meta_["description"].strip()
+    call = cta(meta_)
     if meta_["is_short"]:
-        yt = f"{desc}\n\nNew Family Quiz Night every Wednesday and Saturday on our channel!\n\n{' '.join(HASHTAGS)}"
+        yt = (f"{call}\n\n{desc}\n\nNew Family Quiz Night every Wednesday and Saturday on our channel!"
+              f"\n\n{' '.join(HASHTAGS)}")
     else:
         chapters = "\n".join(meta_.get("chapters", []))
-        yt = f"{desc}\n\n{chapters}\n\n{' '.join(HASHTAGS)}".strip()
-    social = f"{meta_['title']}\n\n{desc}\n\n{SOCIAL_TAGS}"
+        yt = f"{desc}\n\n{call}\n\n{chapters}\n\n{' '.join(HASHTAGS)}".strip()
+    social = f"{meta_['title']}\n\n{call}\n\n{desc}\n\n{SOCIAL_TAGS}"
     return {"youtube": yt, "social": social}
 
 
@@ -91,8 +110,8 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         if meta_.get("first_comment"):
             try:
                 meta.fb_comment(vid, meta_["first_comment"])
-            except Exception:
-                pass
+            except Exception as e:   # needs pages_manage_engagement; never blocks the post, but is visible
+                plats["facebook"]["note"] = _err(e)
         return vid
 
     def ig():
@@ -106,8 +125,8 @@ def publish_item(entry: dict, meta_: dict, video: Path, media_repo: Path | None,
         if meta_.get("first_comment"):
             try:
                 meta.ig_comment(mid, meta_["first_comment"])
-            except Exception:
-                pass
+            except Exception as e:   # needs instagram_manage_comments; never blocks the post, but is visible
+                plats["instagram"]["note"] = _err(e)
         return mid
 
     run("youtube", yt)

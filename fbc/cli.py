@@ -363,7 +363,8 @@ def publish(repo: ContentRepo, now: datetime, media_repo: Path | None, dry_run: 
         video = repo.download_asset(entry["week"], entry["asset"], dl)
         thumbs = [repo.download_asset(entry["week"], t, dl) for t in entry.get("thumbnails", [])]
         meta = {"title": entry["title"], "description": entry["description"], "first_comment": entry["first_comment"],
-                "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs}
+                "is_short": entry["kind"] == "short", "chapters": entry.get("chapters", []), "thumbnails": thumbs,
+                "format": entry.get("format")}
         if entry.get("teaser_asset"):
             meta["teaser"] = repo.download_asset(entry["week"], entry["teaser_asset"], dl)
         if entry["kind"] == "short" and thumbs:

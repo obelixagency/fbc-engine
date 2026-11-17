@@ -10,7 +10,7 @@ Hard rules:
 - visual_query: 2-4 plain English words to search a stock video site for a real-life clip of the subject (e.g. "horse sleeping field"). No people's faces as the subject when avoidable; never children as the main subject.
 - titles: 3 different YouTube Shorts titles, each under 60 characters, curiosity + family challenge, max one emoji.
 - description: one sentence with natural search keywords (quiz, trivia, family).
-- first_comment: one short line inviting viewers to comment their score or vote.
+- first_comment: one short, specific question about THIS Short that is effortless to answer in a word or a number and sparks friendly family debate (e.g. "Parents, be honest: did your kid beat you on #2?", "Which one fooled you, 3 or 5?"). Never reveal the answer. Max one emoji. Never generic ("Let us know in the comments").
 
 Formats:
 - three_q: 3 multiple-choice questions, same category, easy -> medium -> hard.
