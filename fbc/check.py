@@ -135,13 +135,15 @@ def check_fb_reel_insights() -> None:
         raise CheckFailed(r.status_code, f"code_{e.get('code')}: {str(e.get('message', ''))[:120]}")
     if not d.get("data"):
         raise CheckFailed(r.status_code, "no_metrics_returned")
-    for vid in (vids[0]["id"], "1403290442876570"):   # temporary: latest Reel vs. the id the publisher stored
-        rr = requests.get(f"{GRAPH}/{vid}/video_insights", params={
-            "metric": "blue_reels_play_count,post_video_avg_time_watched", "access_token": token}, timeout=30)
-        dd = rr.json()
-        vals = {m["name"]: (m.get("values") or [{}])[0].get("value") for m in dd.get("data") or []}
-        safe("fb_reel_probe", id=vid, http=rr.status_code, reason=_meta_reason(dd),
-             count=vals.get("blue_reels_play_count"), status=",".join(f"{k}={type(v).__name__}" for k, v in vals.items()))
+    for vid in ("1403290442876570", "1505682254719826"):   # temporary probe: which Reel metrics carry numbers
+        for metric in ("blue_reels_play_count", "fb_reels_total_plays", "fb_reels_replay_count",
+                       "post_video_views", "post_total_media_view_unique", "post_video_avg_time_watched",
+                       "post_video_view_time", "post_reactions_by_type_total"):
+            rr = requests.get(f"{GRAPH}/{vid}/video_insights", params={"metric": metric, "access_token": token}, timeout=30)
+            dd = rr.json()
+            v = [(m.get("values") or [{}])[0].get("value") for m in dd.get("data") or []]
+            safe("fb_reel_probe", id=vid, platform=metric, http=rr.status_code, reason=_meta_reason(dd),
+                 count=v[0] if v and isinstance(v[0], int) else None, status=type(v[0]).__name__ if v else "none")
 
 
 def check_pexels() -> None:
