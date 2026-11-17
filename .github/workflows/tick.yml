@@ -75,8 +75,10 @@ jobs:
             git -C content pull -q --rebase || true
             git -C media pull -q --rebase || true
             timeout 55m python -m fbc.cli tick --kind short ${{ inputs.dry_run && '--dry-run' || '' }} || echo "[fbc] tick_failed {}"
-            if [ "$(date -u +%H)" = "12" ] && [ ! -f "work/analytics-$(date -u +%F)" ]; then
-              mkdir -p work && touch "work/analytics-$(date -u +%F)"
+            # analytics: at 12:00 UTC, and once at the start of every loop run (a restart after a token or code
+            # change collects right away); each platform of each Short is only scored once, so repeats are cheap
+            if { [ "$(date -u +%H)" = "12" ] && [ ! -f "work/analytics-$(date -u +%F)" ]; } || [ ! -f work/analytics-loopstart ]; then
+              mkdir -p work && touch "work/analytics-$(date -u +%F)" work/analytics-loopstart
               git -C content pull -q --rebase || true
               python -m fbc.cli analytics || echo "[fbc] analytics_failed {}"
             fi

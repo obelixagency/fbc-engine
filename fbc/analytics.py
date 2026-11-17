@@ -53,37 +53,89 @@ def fetch_instagram(media_id: str, duration: float) -> dict | None:
             "comments": m.get("comments", 0), "shares": m.get("shares", 0), "subscribersGained": 0}
 
 
+def fetch_facebook(video_id: str, duration: float) -> dict | None:
+    """Reel plays and average watch time (video_insights; needs read_insights)."""
+    token = _meta_token()
+    r = requests.get(f"{GRAPH}/{video_id}/video_insights", timeout=60, params={
+        "metric": "blue_reels_play_count,post_video_avg_time_watched", "access_token": token})
+    data = r.json()
+    if r.status_code >= 400 or "data" not in data:
+        err = data.get("error") if isinstance(data, dict) else None
+        safe("fb_insights_failed", http=r.status_code,
+             reason=f"code_{err.get('code')}" if isinstance(err, dict) else None)
+        return None
+    m = {d["name"]: (d.get("values") or [{}])[0].get("value", 0) for d in data["data"]}
+    views = m.get("blue_reels_play_count") or 0
+    if not views:
+        return None
+    avg_pct = min(100.0, (m.get("post_video_avg_time_watched", 0) / 1000.0) / max(duration, 1) * 100)
+    eng = requests.get(f"{GRAPH}/{video_id}", timeout=60, params={
+        "fields": "likes.summary(true).limit(0),comments.summary(true).limit(0)", "access_token": token}).json()
+    def total(k):
+        return ((eng.get(k) or {}).get("summary") or {}).get("total_count", 0) if isinstance(eng, dict) else 0
+    return {"views": views, "averageViewPercentage": avg_pct, "likes": total("likes"),
+            "comments": total("comments"), "shares": 0, "subscribersGained": 0}
+
+
+def _slot_et(entry: dict) -> str | None:
+    from zoneinfo import ZoneInfo
+    from .config import TZ_ET
+    try:
+        return datetime.fromisoformat(entry["slot_utc"]).astimezone(ZoneInfo(TZ_ET)).strftime("%H:%M")
+    except (KeyError, ValueError):
+        return None
+
+
 def _row(entry: dict, platform: str, s: dict) -> dict:
     views = max(s.get("views") or 0, 1)
     score = score_video(s.get("averageViewPercentage", 0) / 100, s.get("shares", 0) / views,
                         s.get("comments", 0) / views, s.get("subscribersGained", 0) / views)
     return {"id": entry["id"], "platform": platform, "format": entry.get("format"), "category": entry.get("category"),
-            "hook_id": entry.get("hook_id"), "slot": entry.get("slot_local"), "views": s.get("views", 0),
+            "hook_id": entry.get("hook_id"), "slot": entry.get("slot_local") or _slot_et(entry), "views": s.get("views", 0),
             "avg_view_pct": s.get("averageViewPercentage", 0), "score": round(score, 5)}
 
 
-def collect_stats(queue: list[dict], now: datetime, fetch_yt=fetch_youtube, fetch_ig=fetch_instagram) -> list[dict]:
+MAX_AGE = timedelta(days=60)   # stop retrying a platform that never returns stats
+
+
+def collect_stats(queue: list[dict], now: datetime, fetch_yt=fetch_youtube, fetch_ig=fetch_instagram,
+                  fetch_fb=fetch_facebook) -> list[dict]:
+    """Scores each platform once per Short. `scored_on` lists the platforms already scored; old entries that only
+    have `scored` were scored on YouTube alone, so Instagram and Facebook are still collected for them."""
     rows = []
+    fetchers = {"youtube": lambda ref, e, pub: fetch_yt(ref, pub.date()),
+                "instagram": lambda ref, e, pub: fetch_ig(ref, e.get("duration", 30.0)),
+                "facebook": lambda ref, e, pub: fetch_fb(ref, e.get("duration", 30.0))}
     for e in queue:
-        if e.get("kind") != "short" or e.get("status") != "published" or e.get("scored") or not e.get("published_at"):
+        if e.get("kind") != "short" or e.get("status") != "published" or not e.get("published_at"):
             continue
         published = datetime.fromisoformat(e["published_at"])
-        if now - published < MIN_AGE:
+        if now - published < MIN_AGE or now - published > MAX_AGE:
             continue
-        got = False
-        yt_ref = e["platforms"].get("youtube", {}).get("ref")
-        if yt_ref:
-            s = fetch_yt(yt_ref, published.date())
+        done = set(e.get("scored_on") or (["youtube"] if e.get("scored") else []))
+        for platform, fetch in fetchers.items():
+            ref = (e["platforms"].get(platform) or {}).get("ref")
+            if platform in done or not ref:
+                continue
+            s = fetch(ref, e, published)
             if s:
-                rows.append(_row(e, "youtube", s)); got = True
-        ig_ref = e["platforms"].get("instagram", {}).get("ref")
-        if ig_ref:
-            s = fetch_ig(ig_ref, e.get("duration", 30.0))
-            if s:
-                rows.append(_row(e, "instagram", s)); got = True
-        if got:
+                rows.append(_row(e, platform, s)); done.add(platform)
+        if done:
+            e["scored_on"] = sorted(done)
             e["scored"] = True
     return rows
+
+
+def reach_md(scores: list[dict]) -> str:
+    """Median views per platform and ET slot, from analytics/scores.jsonl rows."""
+    from statistics import median
+    by: dict[tuple, list] = {}
+    for r in scores:
+        by.setdefault((r.get("platform"), r.get("slot") or "?"), []).append(r.get("views") or 0)
+    out = ["| platform | slot ET | Shorts | median views | total views |", "|---|---|---|---|---|"]
+    for (p, slot), v in sorted(by.items(), key=lambda kv: (kv[0][0] or "", kv[0][1])):
+        out.append(f"| {p} | {slot} | {len(v)} | {median(v):.0f} | {sum(v)} |")
+    return "\n".join(out)
 
 
 def apply(weights: dict, rows: list[dict]) -> dict:

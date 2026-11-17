@@ -113,9 +113,10 @@ def check_ig_insights() -> None:
 
 
 def check_fb_insights() -> None:
-    """Page reach: needs the read_insights permission on the token."""
+    """Page reach: needs the read_insights permission on the token. page_impressions_unique was removed by Meta
+    in June 2026 (invalid metric, code 100); page_total_media_view_unique is its replacement."""
     _need_ok(requests.get(f"{GRAPH}/{env('FB_PAGE_ID')}/insights", params={
-        "metric": "page_impressions_unique", "period": "day", "access_token": _ig_token()}, timeout=30),
+        "metric": "page_total_media_view_unique", "period": "day", "access_token": _ig_token()}, timeout=30),
         _meta_reason)
 
 

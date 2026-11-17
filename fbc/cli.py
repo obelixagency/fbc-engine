@@ -414,6 +414,11 @@ def run_analytics(repo: ContentRepo, now: datetime, dry_run: bool) -> int:
     repo.append_scores([{**r, "date": now.date().isoformat()} for r in rows])
     (repo.path / "analytics").mkdir(exist_ok=True)
     (repo.path / "analytics" / "last_report.md").write_text(an.report_md(rows, before, after))
+    scores_file = repo.path / "analytics" / "scores.jsonl"
+    if scores_file.exists():
+        all_rows = [json.loads(x) for x in scores_file.read_text().splitlines() if x.strip()]
+        (repo.path / "analytics" / "reach.md").write_text(
+            f"# Reach by platform and slot (updated {now.date().isoformat()})\n\n{an.reach_md(all_rows)}\n")
     repo.save_queue(queue)
     repo.commit_and_push("analytics: weights update")
     return len(rows)
